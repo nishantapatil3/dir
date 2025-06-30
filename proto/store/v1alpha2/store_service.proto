@@ -38,10 +38,10 @@ service StoreService {
 }
 
 message PushRequestChunk {
-  // Reference to the object being pushed.
+  // Object type being pushed.
   core.ObjectType object_type = 1;
 
-  // Annotations of the object being pushed.
+  // Annotations for the object being pushed.
   map<string, string> annotations = 2;
 
   // Size of the object data chunk in bytes.
@@ -62,14 +62,11 @@ message PullRequest {
 }
 
 message PullResponseChunk {
-  // Object details without the data.
-  core.Object object = 1;
-
   // The actual object data chunk.
-  bytes data = 2;
+  bytes data = 1;
 
   // Size of the object data chunk in bytes.
-  uint64 size = 3;
+  uint64 size = 2;
 }
 
 message LookupRequest {
