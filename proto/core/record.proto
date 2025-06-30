@@ -5,7 +5,6 @@ syntax = "proto3";
 
 package core;
 
-import "core/object.proto";
 import "oasf/v1alpha1/agent.proto";
 import "oasf/v1alpha2/record.proto";
 

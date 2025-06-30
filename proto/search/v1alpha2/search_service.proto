@@ -5,8 +5,8 @@ syntax = "proto3";
 
 package search.v1alpha2;
 
-import "search/v1alpha2/record_query.proto";
 import "core/object.proto";
+import "search/v1alpha2/record_query.proto";
 
 service SearchService {
   // List records that this peer is currently providing that match the given parameters.

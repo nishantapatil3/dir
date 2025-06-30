@@ -25,4 +25,12 @@ message Extension {
   // Data attached to the extension.
   // Usually a JSON-embedded object.
   google.protobuf.Struct data = 4;
+
+  // CID of the extension object on the content storage.
+  // This allows model producers and extension
+  // consumers to leverage the storage layer and
+  // bypass restrictions on the request size.
+  //
+  // NOTE: this is currently not used
+  // optional string data_cid = 5;
 }
