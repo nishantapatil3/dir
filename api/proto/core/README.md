@@ -9,7 +9,6 @@ Core package is intendend to be used as a non-breaking, forward-compatible, stab
 
 ObjectType encodes three important details about an object: `<schema>/<version>/<format>`
 
-
 ### Example: Records
 
 This example demonstrates how to use CID codec via ObjectType to embed schema, version, and format of the Record object being managed in a generic way.

@@ -115,7 +115,7 @@ tasks:
   ##
   api:gen:
     desc: Generates API stubs
-    dir: ./proto
+    dir: ./api
     deps:
       - task: deps:protoc
       - task: deps:bufbuild
@@ -133,7 +133,7 @@ tasks:
 
   api:clean:go:
     desc: Clean generated golang API stubs
-    dir: ./proto
+    dir: ./api
     cmds:
       - find . \( -name "*.pb.go" \) -type f -delete
 
