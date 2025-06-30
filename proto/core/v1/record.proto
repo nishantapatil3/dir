@@ -3,8 +3,9 @@
 
 syntax = "proto3";
 
-package core;
+package core.v1;
 
+import "core/v1/object.proto";
 import "oasf/v1alpha1/agent.proto";
 import "oasf/v1alpha2/record.proto";
 
@@ -20,16 +21,24 @@ message RecordObject {
   // Type of the record.
   RecordObjectType type = 2;
 
-  // Schema version of the record.
-  string schema_version = 3;
-
   // Data of the record.
-  RecordObjectData record = 4;
+  RecordObjectData record = 3;
 }
 
+// Converts Object to a RecordObject and vice versa.
+// This is client-side service only.
+service RecordObjectManager {
+  // Converts an Object to a Record.
+  rpc ConvertObjectToRecord(Object) returns (RecordObject);
+
+  // Converts a Record to an Object.
+  rpc ConvertRecordToObject(RecordObject) returns (Object);
+}
+
+// RecordObjectType defines a subset of types for record objects.
 enum RecordObjectType {
   RECORD_OBJECT_TYPE_UNSPECIFIED = 0; // invalid type, should not be used
-  
+
   RECORD_OBJECT_TYPE_OASF_V1ALPHA1_JSON = 1001;
   RECORD_OBJECT_TYPE_OASF_V1ALPHA2_JSON = 1002;
 }

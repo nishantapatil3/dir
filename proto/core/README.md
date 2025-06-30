@@ -1,24 +1,18 @@
-# Core API Package
+# Core Package
 
 Core package is intendend to be used as a non-breaking, forward-compatible, stable package for common objects and operations needed for:
-- interconnecting OASF objects with Directory
+- interconnecting various objects with Directory
 - providing simple object management
 - simplifying usage of objects across solutions and integrations
 
-## ObjectManager
+## ObjectType
 
-This serves as a decoupled, standalone, non-API interface to handle versioning and conversion between different objects passed across the API with typehints for internal logic.
+ObjectType encodes three important details about an object: `<schema>/<version>/<format>`
 
-It allows unified control of objects, regardless of their schemas, versions, and formats; only dependant on their usage across APIs and codebase.
-For example, generic objects in the storage layer can be casted to specific types using this interface.
-
-Handlers for new objects can be added in the similar way as done for `Record` types.
-All objects use specific `ObjectType` IDs that are used for type embeddings via CID codecs.
-An example is provided below.
 
 ### Example: Records
 
-This example demonstrates how to use CID codec to embed schema, version, and format of the Record object being managed in a generic way.
+This example demonstrates how to use CID codec via ObjectType to embed schema, version, and format of the Record object being managed in a generic way.
 
 ```go
 package main
@@ -58,3 +52,14 @@ func main() {
 	// Step 6: Concrete object available
 }
 ```
+
+## ObjectManager
+
+This serves as a decoupled, standalone, non-API interface to handle versioning and conversion between different objects passed across the API with typehints for internal logic.
+
+It allows unified control of objects, regardless of their schemas, versions, and formats; only dependant on their usage across APIs and codebase.
+For example, generic objects in the storage layer can be casted to specific types using this interface.
+
+Handlers for new objects can be added in the similar way as done for `Record` types.
+All objects use specific `ObjectType` IDs that are used for type embeddings via CID codecs.
+An example is provided below.
