@@ -8,13 +8,13 @@ import (
 	"sync"
 	"testing"
 
-	corev1alpha1 "github.com/agntcy/dir/api/core/v1alpha1"
+	oasfv1alpha1 "github.com/agntcy/dir/api/oasf/v1alpha1"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestSkillValidator_HasSkill(t *testing.T) {
 	validator := &SkillValidator{
-		skills: map[uint64]*corev1alpha1.Skill{
+		skills: map[uint64]*oasfv1alpha1.Skill{
 			1: {ClassUid: 1},
 		},
 		mu: sync.RWMutex{},
@@ -26,7 +26,7 @@ func TestSkillValidator_HasSkill(t *testing.T) {
 
 func TestSkillValidator_GetSkill(t *testing.T) {
 	validator := &SkillValidator{
-		skills: map[uint64]*corev1alpha1.Skill{
+		skills: map[uint64]*oasfv1alpha1.Skill{
 			1: {ClassUid: 1},
 		},
 		mu: sync.RWMutex{},
@@ -39,7 +39,7 @@ func TestSkillValidator_GetSkill(t *testing.T) {
 func TestSkillValidator_GetSkillByName(t *testing.T) {
 	className := "Skill1"
 	validator := &SkillValidator{
-		skills: map[uint64]*corev1alpha1.Skill{
+		skills: map[uint64]*oasfv1alpha1.Skill{
 			1: {ClassUid: 1, ClassName: &className},
 		},
 		mu: sync.RWMutex{},
@@ -52,14 +52,14 @@ func TestSkillValidator_GetSkillByName(t *testing.T) {
 func TestSkillValidator_Validate(t *testing.T) {
 	className := "Skill1"
 	validator := &SkillValidator{
-		skills: map[uint64]*corev1alpha1.Skill{
+		skills: map[uint64]*oasfv1alpha1.Skill{
 			1: {ClassUid: 1, ClassName: &className},
 		},
 		mu: sync.RWMutex{},
 	}
 
 	t.Run("Valid skills", func(t *testing.T) {
-		skills := []*corev1alpha1.Skill{
+		skills := []*oasfv1alpha1.Skill{
 			{ClassUid: 1},
 		}
 
@@ -68,7 +68,7 @@ func TestSkillValidator_Validate(t *testing.T) {
 	})
 
 	t.Run("Invalid skills", func(t *testing.T) {
-		skills := []*corev1alpha1.Skill{
+		skills := []*oasfv1alpha1.Skill{
 			{ClassUid: 2},
 		}
 
@@ -78,7 +78,7 @@ func TestSkillValidator_Validate(t *testing.T) {
 	})
 
 	t.Run("Missing class_uid", func(t *testing.T) {
-		skills := []*corev1alpha1.Skill{
+		skills := []*oasfv1alpha1.Skill{
 			{},
 		}
 
@@ -90,12 +90,12 @@ func TestSkillValidator_Validate(t *testing.T) {
 
 func TestValidateSkills(t *testing.T) {
 	className := "Skill1"
-	Validator.skills = map[uint64]*corev1alpha1.Skill{
+	Validator.skills = map[uint64]*oasfv1alpha1.Skill{
 		1: {ClassUid: 1, ClassName: &className},
 	}
 
 	t.Run("Valid skills", func(t *testing.T) {
-		skills := []*corev1alpha1.Skill{
+		skills := []*oasfv1alpha1.Skill{
 			{ClassUid: 1},
 		}
 
@@ -104,7 +104,7 @@ func TestValidateSkills(t *testing.T) {
 	})
 
 	t.Run("Invalid skills", func(t *testing.T) {
-		skills := []*corev1alpha1.Skill{
+		skills := []*oasfv1alpha1.Skill{
 			{ClassUid: 2},
 		}
 

@@ -1,7 +1,7 @@
 // Copyright AGNTCY Contributors (https://github.com/agntcy)
 // SPDX-License-Identifier: Apache-2.0
 
-package corev1alpha1
+package oasfv1alpha1
 
 import "fmt"
 

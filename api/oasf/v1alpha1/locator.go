@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //nolint:mnd
-package corev1alpha1
+package oasfv1alpha1
 
 import "fmt"
 

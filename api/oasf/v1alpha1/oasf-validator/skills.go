@@ -16,17 +16,17 @@ import (
 	"sync"
 	"time"
 
-	corev1alpha1 "github.com/agntcy/dir/api/core/v1alpha1"
+	oasfv1alpha1 "github.com/agntcy/dir/api/oasf/v1alpha1"
 )
 
 const OASFEndpoint = "https://schema.oasf.agntcy.org/api/skills"
 
 var Validator = &SkillValidator{
-	skills: make(map[uint64]*corev1alpha1.Skill),
+	skills: make(map[uint64]*oasfv1alpha1.Skill),
 }
 
 type SkillValidator struct {
-	skills map[uint64]*corev1alpha1.Skill
+	skills map[uint64]*oasfv1alpha1.Skill
 	loaded bool
 	mu     sync.RWMutex
 }
@@ -97,7 +97,7 @@ func (sv *SkillValidator) fetchSkills() error {
 			return fmt.Errorf("invalid caption type for skill %v", uid)
 		}
 
-		skill := corev1alpha1.Skill{
+		skill := oasfv1alpha1.Skill{
 			ClassUid:     uint64(uid),
 			CategoryUid:  uint64(categoryUid),
 			CategoryName: &categoryName,
@@ -120,14 +120,14 @@ func (sv *SkillValidator) HasSkill(classUid uint64) bool {
 	return exists
 }
 
-func (sv *SkillValidator) GetSkill(classUid uint64) *corev1alpha1.Skill {
+func (sv *SkillValidator) GetSkill(classUid uint64) *oasfv1alpha1.Skill {
 	sv.mu.RLock()
 	defer sv.mu.RUnlock()
 
 	return sv.skills[classUid]
 }
 
-func (sv *SkillValidator) GetSkillByName(className string) *corev1alpha1.Skill {
+func (sv *SkillValidator) GetSkillByName(className string) *oasfv1alpha1.Skill {
 	sv.mu.RLock()
 	defer sv.mu.RUnlock()
 	for _, skill := range sv.skills {
@@ -139,7 +139,7 @@ func (sv *SkillValidator) GetSkillByName(className string) *corev1alpha1.Skill {
 	return nil
 }
 
-func (sv *SkillValidator) Validate(skills []*corev1alpha1.Skill) error {
+func (sv *SkillValidator) Validate(skills []*oasfv1alpha1.Skill) error {
 	var errorMessages []string
 
 	for _, skill := range skills {
@@ -162,6 +162,6 @@ func (sv *SkillValidator) Validate(skills []*corev1alpha1.Skill) error {
 	return nil
 }
 
-func ValidateSkills(skills []*corev1alpha1.Skill) error {
+func ValidateSkills(skills []*oasfv1alpha1.Skill) error {
 	return Validator.Validate(skills)
 }
