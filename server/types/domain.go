@@ -3,48 +3,44 @@ package types
 // Record represents a unified interface for working with record objects
 // regardless of their underlying proto version or format.
 type Record interface {
-	// GetCID returns the content identifier of the record
-	GetCID() string
+	// CID returns the content identifier of the record.
+	CID() string
 
-	// GetType returns the type of the record
-	GetType() string
+	// Type returns the type of the record.
+	Type() string
 
-	// GetData returns the underlying record data
-	GetData() interface{}
+	// Data returns the underlying record data.
+	Data() interface{}
 
-	// GetSchemaVersion returns the schema version of the record
-	GetSchemaVersion() string
+	// SchemaVersion returns the schema version of the record.
+	SchemaVersion() string
 }
 
-// ObjectRef represents a unified interface for working with object references
-// regardless of their underlying proto version or format.
+// ObjectIdentifier provides a unique content identifier (CID) for an object.
 type ObjectRef interface {
-	// GetCID returns the globally-unique content identifier (CID) of the object
-	GetCID() string
+	// CID returns the globally-unique content identifier (CID) of the object.
+	CID() string
 }
 
-// Object represents a unified interface for working with objects
-// regardless of their underlying proto version or format.
+// Object represents an object with metadata and optional data.
 type Object interface {
-	// GetCID returns the globally-unique content identifier of the object
-	GetCID() string
+	ObjectRef
 
-	// GetType returns the type of the object
-	GetType() string
+	// Type returns the type of the object.
+	Type() string
 
-	// GetAnnotations returns metadata associated with the object
-	GetAnnotations() map[string]string
+	// Annotations returns metadata associated with the object.
+	Annotations() map[string]string
 
-	// GetCreatedAt returns the creation timestamp in RFC3339 format
-	GetCreatedAt() string
+	// CreatedAt returns the creation timestamp in RFC3339 format.
+	CreatedAt() string
 
-	// GetSize returns the size of the object in bytes
-	GetSize() uint64
+	// Size returns the size of the object in bytes.
+	Size() uint64
 
-	// GetData returns the opaque data held by this object
-	// Returns nil if no data is present
-	GetData() []byte
+	// Data returns the opaque data held by this object. Returns nil if no data is present.
+	Data() []byte
 
-	// HasData returns true if the object contains data
+	// HasData reports whether the object contains data.
 	HasData() bool
 }

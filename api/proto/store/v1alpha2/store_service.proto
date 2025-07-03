@@ -32,7 +32,7 @@ service StoreService {
   // Lookup resolves basic metadata for the object.
   // It does not return the object data.
   rpc Lookup(LookupRequest) returns (LookupResponse);
-  
+
   // Remove performs delete operation for the requested object.
   rpc Delete(DeleteRequest) returns (DeleteResponse);
 }
@@ -90,5 +90,4 @@ message DeleteRequest {
   core.v1.ObjectRef object_ref = 1;
 }
 
-message DeleteResponse {
-}
+message DeleteResponse {}
