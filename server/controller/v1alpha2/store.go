@@ -235,7 +235,7 @@ func (s storeCtrl) Delete(ctx context.Context, req *storetypes.DeleteRequest) (*
 }
 
 func generateCID(o *coretypes.Object) error {
-	if o.GetCid() != "" {
+	if o.GetRef().GetCid() != "" {
 		return nil
 	}
 

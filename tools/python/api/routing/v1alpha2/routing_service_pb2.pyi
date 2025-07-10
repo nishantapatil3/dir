@@ -1,4 +1,4 @@
-from core.v1 import object_pb2 as _object_pb2
+from core.v1 import record_pb2 as _record_pb2
 from routing.v1alpha2 import peer_pb2 as _peer_pb2
 from routing.v1alpha2 import record_query_pb2 as _record_query_pb2
 from google.protobuf.internal import containers as _containers
@@ -12,8 +12,8 @@ DESCRIPTOR: _descriptor.FileDescriptor
 class PublishRequest(_message.Message):
     __slots__ = ("record_ref",)
     RECORD_REF_FIELD_NUMBER: _ClassVar[int]
-    record_ref: _object_pb2.ObjectRef
-    def __init__(self, record_ref: _Optional[_Union[_object_pb2.ObjectRef, _Mapping]] = ...) -> None: ...
+    record_ref: _record_pb2.RecordRef
+    def __init__(self, record_ref: _Optional[_Union[_record_pb2.RecordRef, _Mapping]] = ...) -> None: ...
 
 class PublishResponse(_message.Message):
     __slots__ = ()
@@ -22,8 +22,8 @@ class PublishResponse(_message.Message):
 class UnpublishRequest(_message.Message):
     __slots__ = ("record_ref",)
     RECORD_REF_FIELD_NUMBER: _ClassVar[int]
-    record_ref: _object_pb2.ObjectRef
-    def __init__(self, record_ref: _Optional[_Union[_object_pb2.ObjectRef, _Mapping]] = ...) -> None: ...
+    record_ref: _record_pb2.RecordRef
+    def __init__(self, record_ref: _Optional[_Union[_record_pb2.RecordRef, _Mapping]] = ...) -> None: ...
 
 class UnpublishResponse(_message.Message):
     __slots__ = ()
@@ -45,11 +45,11 @@ class SearchResponse(_message.Message):
     PEER_FIELD_NUMBER: _ClassVar[int]
     MATCH_QUERIES_FIELD_NUMBER: _ClassVar[int]
     MATCH_SCORE_FIELD_NUMBER: _ClassVar[int]
-    record_ref: _object_pb2.ObjectRef
+    record_ref: _record_pb2.RecordRef
     peer: _peer_pb2.Peer
     match_queries: _containers.RepeatedCompositeFieldContainer[_record_query_pb2.RecordQuery]
     match_score: int
-    def __init__(self, record_ref: _Optional[_Union[_object_pb2.ObjectRef, _Mapping]] = ..., peer: _Optional[_Union[_peer_pb2.Peer, _Mapping]] = ..., match_queries: _Optional[_Iterable[_Union[_record_query_pb2.RecordQuery, _Mapping]]] = ..., match_score: _Optional[int] = ...) -> None: ...
+    def __init__(self, record_ref: _Optional[_Union[_record_pb2.RecordRef, _Mapping]] = ..., peer: _Optional[_Union[_peer_pb2.Peer, _Mapping]] = ..., match_queries: _Optional[_Iterable[_Union[_record_query_pb2.RecordQuery, _Mapping]]] = ..., match_score: _Optional[int] = ...) -> None: ...
 
 class ListRequest(_message.Message):
     __slots__ = ("queries", "limit")
@@ -62,5 +62,5 @@ class ListRequest(_message.Message):
 class ListResponse(_message.Message):
     __slots__ = ("record_ref",)
     RECORD_REF_FIELD_NUMBER: _ClassVar[int]
-    record_ref: _object_pb2.ObjectRef
-    def __init__(self, record_ref: _Optional[_Union[_object_pb2.ObjectRef, _Mapping]] = ...) -> None: ...
+    record_ref: _record_pb2.RecordRef
+    def __init__(self, record_ref: _Optional[_Union[_record_pb2.RecordRef, _Mapping]] = ...) -> None: ...

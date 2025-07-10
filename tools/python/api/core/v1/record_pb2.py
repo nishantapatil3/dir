@@ -22,12 +22,11 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
-from core.v1 import object_pb2 as core_dot_v1_dot_object__pb2
 from oasf.v1alpha1 import agent_pb2 as oasf_dot_v1alpha1_dot_agent__pb2
 from oasf.v1alpha2 import record_pb2 as oasf_dot_v1alpha2_dot_record__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x14\x63ore/v1/record.proto\x12\x07\x63ore.v1\x1a\x14\x63ore/v1/object.proto\x1a\x19oasf/v1alpha1/agent.proto\x1a\x1aoasf/v1alpha2/record.proto\"\x82\x01\n\x0cRecordObject\x12\x10\n\x03\x63id\x18\x01 \x01(\tR\x03\x63id\x12-\n\x04type\x18\x02 \x01(\x0e\x32\x19.core.v1.RecordObjectTypeR\x04type\x12\x31\n\x06record\x18\x03 \x01(\x0b\x32\x19.core.v1.RecordObjectDataR\x06record\"\x9d\x01\n\x10RecordObjectData\x12?\n\x0frecord_v1alpha1\x18\x01 \x01(\x0b\x32\x14.oasf.v1alpha1.AgentH\x00R\x0erecordV1alpha1\x12@\n\x0frecord_v1alpha2\x18\x02 \x01(\x0b\x32\x15.oasf.v1alpha2.RecordH\x00R\x0erecordV1alpha2B\x06\n\x04\x64\x61ta*\x8e\x01\n\x10RecordObjectType\x12\"\n\x1eRECORD_OBJECT_TYPE_UNSPECIFIED\x10\x00\x12*\n%RECORD_OBJECT_TYPE_OASF_V1ALPHA1_JSON\x10\xe9\x07\x12*\n%RECORD_OBJECT_TYPE_OASF_V1ALPHA2_JSON\x10\xea\x07\x32\x97\x01\n\x13RecordObjectManager\x12?\n\x15\x43onvertObjectToRecord\x12\x0f.core.v1.Object\x1a\x15.core.v1.RecordObject\x12?\n\x15\x43onvertRecordToObject\x12\x15.core.v1.RecordObject\x1a\x0f.core.v1.ObjectB\x81\x01\n\x0b\x63om.core.v1B\x0bRecordProtoP\x01Z(github.com/agntcy/dir/api/core/v1;corev1\xa2\x02\x03\x43XX\xaa\x02\x07\x43ore.V1\xca\x02\x07\x43ore\\V1\xe2\x02\x13\x43ore\\V1\\GPBMetadata\xea\x02\x08\x43ore::V1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x14\x63ore/v1/record.proto\x12\x07\x63ore.v1\x1a\x19oasf/v1alpha1/agent.proto\x1a\x1aoasf/v1alpha2/record.proto\"\x1d\n\tRecordRef\x12\x10\n\x03\x63id\x18\x01 \x01(\tR\x03\x63id\"\xec\x01\n\nRecordMeta\x12\x10\n\x03\x63id\x18\x01 \x01(\tR\x03\x63id\x12\x46\n\x0b\x61nnotations\x18\x02 \x03(\x0b\x32$.core.v1.RecordMeta.AnnotationsEntryR\x0b\x61nnotations\x12%\n\x0eschema_version\x18\x03 \x01(\tR\rschemaVersion\x12\x1d\n\ncreated_at\x18\x04 \x01(\tR\tcreatedAt\x1a>\n\x10\x41nnotationsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\"y\n\x06Record\x12\x32\n\x08v1alpha1\x18\x01 \x01(\x0b\x32\x14.oasf.v1alpha1.AgentH\x00R\x08v1alpha1\x12\x33\n\x08v1alpha2\x18\x02 \x01(\x0b\x32\x15.oasf.v1alpha2.RecordH\x00R\x08v1alpha2B\x06\n\x04\x64\x61taB\x81\x01\n\x0b\x63om.core.v1B\x0bRecordProtoP\x01Z(github.com/agntcy/dir/api/core/v1;corev1\xa2\x02\x03\x43XX\xaa\x02\x07\x43ore.V1\xca\x02\x07\x43ore\\V1\xe2\x02\x13\x43ore\\V1\\GPBMetadata\xea\x02\x08\x43ore::V1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -35,12 +34,14 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'core.v1.record_pb2', _globa
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'\n\013com.core.v1B\013RecordProtoP\001Z(github.com/agntcy/dir/api/core/v1;corev1\242\002\003CXX\252\002\007Core.V1\312\002\007Core\\V1\342\002\023Core\\V1\\GPBMetadata\352\002\010Core::V1'
-  _globals['_RECORDOBJECTTYPE']._serialized_start=404
-  _globals['_RECORDOBJECTTYPE']._serialized_end=546
-  _globals['_RECORDOBJECT']._serialized_start=111
-  _globals['_RECORDOBJECT']._serialized_end=241
-  _globals['_RECORDOBJECTDATA']._serialized_start=244
-  _globals['_RECORDOBJECTDATA']._serialized_end=401
-  _globals['_RECORDOBJECTMANAGER']._serialized_start=549
-  _globals['_RECORDOBJECTMANAGER']._serialized_end=700
+  _globals['_RECORDMETA_ANNOTATIONSENTRY']._loaded_options = None
+  _globals['_RECORDMETA_ANNOTATIONSENTRY']._serialized_options = b'8\001'
+  _globals['_RECORDREF']._serialized_start=88
+  _globals['_RECORDREF']._serialized_end=117
+  _globals['_RECORDMETA']._serialized_start=120
+  _globals['_RECORDMETA']._serialized_end=356
+  _globals['_RECORDMETA_ANNOTATIONSENTRY']._serialized_start=294
+  _globals['_RECORDMETA_ANNOTATIONSENTRY']._serialized_end=356
+  _globals['_RECORD']._serialized_start=358
+  _globals['_RECORD']._serialized_end=479
 # @@protoc_insertion_point(module_scope)
