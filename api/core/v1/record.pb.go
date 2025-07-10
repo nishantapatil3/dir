@@ -147,8 +147,9 @@ func (x *RecordMeta) GetCreatedAt() string {
 	return ""
 }
 
-// Record encapsulates different versions of records
-// into a single message.
+// Record unifies different versions of records into a single message.
+// It allows for backward compatibility and easier handling of different
+// record versions in the same service or application.
 type Record struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Types that are valid to be assigned to Data:

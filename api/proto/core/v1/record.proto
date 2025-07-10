@@ -31,8 +31,9 @@ message RecordMeta {
   string created_at = 4;
 }
 
-// Record encapsulates different versions of records
-// into a single message.
+// Record unifies different versions of records into a single message.
+// It allows for backward compatibility and easier handling of different
+// record versions in the same service or application.
 message Record {
   oneof data {
     oasf.v1alpha1.Agent v1alpha1 = 1;
