@@ -35,7 +35,10 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
 // Defines an interface for content-addressable storage
-// service for records.
+// service for objects.
+//
+// Max object size: 4MB (to fully fit in a single request)
+// Max metadata size: 100KB
 //
 // Store service can be implemented by various storage backends,
 // such as local file system, OCI registry, etc.
@@ -201,7 +204,10 @@ func (x *storeServiceDeleteClient) CloseAndRecv() (*emptypb.Empty, error) {
 // for forward compatibility.
 //
 // Defines an interface for content-addressable storage
-// service for records.
+// service for objects.
+//
+// Max object size: 4MB (to fully fit in a single request)
+// Max metadata size: 100KB
 //
 // Store service can be implemented by various storage backends,
 // such as local file system, OCI registry, etc.

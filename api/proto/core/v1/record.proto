@@ -8,14 +8,14 @@ package core.v1;
 import "oasf/v1alpha1/agent.proto";
 import "oasf/v1alpha2/record.proto";
 
-// RecordRef defines a reference to a record in the content-addressable store.
+// Defines a reference or a globally unique content identifier of a record.
 message RecordRef {
   // Globally-unique content identifier (CID) of the record.
   // Specs: https://github.com/multiformats/cid
   string cid = 1;
 }
 
-// RecordMeta defines metadata about a record.
+// Defines metadata about a record.
 message RecordMeta {
   // CID of the record.
   string cid = 1;

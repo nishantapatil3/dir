@@ -26,7 +26,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// RecordRef defines a reference to a record in the content-addressable store.
+// Defines a reference or a globally unique content identifier of a record.
 type RecordRef struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Globally-unique content identifier (CID) of the record.
@@ -73,7 +73,7 @@ func (x *RecordRef) GetCid() string {
 	return ""
 }
 
-// RecordMeta defines metadata about a record.
+// Defines metadata about a record.
 type RecordMeta struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// CID of the record.

@@ -8,7 +8,10 @@ from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
 
 class StoreServiceStub(object):
     """Defines an interface for content-addressable storage
-    service for records.
+    service for objects.
+
+    Max object size: 4MB (to fully fit in a single request)
+    Max metadata size: 100KB
 
     Store service can be implemented by various storage backends,
     such as local file system, OCI registry, etc.
@@ -51,7 +54,10 @@ class StoreServiceStub(object):
 
 class StoreServiceServicer(object):
     """Defines an interface for content-addressable storage
-    service for records.
+    service for objects.
+
+    Max object size: 4MB (to fully fit in a single request)
+    Max metadata size: 100KB
 
     Store service can be implemented by various storage backends,
     such as local file system, OCI registry, etc.
@@ -125,7 +131,10 @@ def add_StoreServiceServicer_to_server(servicer, server):
  # This class is part of an EXPERIMENTAL API.
 class StoreService(object):
     """Defines an interface for content-addressable storage
-    service for records.
+    service for objects.
+
+    Max object size: 4MB (to fully fit in a single request)
+    Max metadata size: 100KB
 
     Store service can be implemented by various storage backends,
     such as local file system, OCI registry, etc.
