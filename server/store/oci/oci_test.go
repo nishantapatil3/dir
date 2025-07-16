@@ -7,14 +7,13 @@ package oci
 import (
 	"bytes"
 	"context"
-	"io"
 	"os"
 	"strconv"
 	"testing"
 
-	coretypes "github.com/agntcy/dir/api/core/v1"
+	corev1 "github.com/agntcy/dir/api/core/v1"
+	oasfv1alpha1 "github.com/agntcy/dir/api/oasf/v1alpha1"
 	ociconfig "github.com/agntcy/dir/server/store/oci/config"
-	"github.com/agntcy/dir/server/store/testutil"
 	"github.com/agntcy/dir/server/types"
 	"github.com/stretchr/testify/assert"
 )
@@ -36,47 +35,62 @@ var (
 	testCtx = context.Background()
 
 	// common bench.
-	benchObjectType = coretypes.ObjectType_OBJECT_TYPE_RAW // for object type to create
-	benchChunk      = bytes.Repeat([]byte{1}, 4096)        // for checking chunking efficiency based on size
+	benchChunk = bytes.Repeat([]byte{1}, 4096) // for checking chunking efficiency based on size
 )
 
 func TestStorePushLookupPullDelete(t *testing.T) {
 	store := loadLocalStore(t)
 
-	data := []byte("test")
-	object, err := testutil.CreateTestObjectWithDefaults(data)
-	assert.NoErrorf(t, err, "failed to create test object")
+	// Create test record
+	agent := &oasfv1alpha1.Agent{
+		Name:          "test-agent",
+		SchemaVersion: "v1alpha1",
+		Description:   "A test agent",
+	}
 
-	objRef, err := store.Push(testCtx, object, bytes.NewReader(data))
+	record := &corev1.Record{
+		Data: &corev1.Record_V1Alpha1{
+			V1Alpha1: agent,
+		},
+	}
+
+	// Calculate CID for the record
+	recordCID := record.GetCid()
+	assert.NotEmpty(t, recordCID, "failed to calculate CID")
+
+	// Push operation
+	recordRef, err := store.Push(testCtx, record)
 	assert.NoErrorf(t, err, "push failed")
-	assert.Equal(t, object.CID(), objRef.CID())
-	assert.Equal(t, object.Type(), objRef.Type())
-	assert.Equal(t, object.Size(), objRef.Size())
-	assert.Equal(t, object.Annotations(), objRef.Annotations())
+	assert.Equal(t, recordCID, recordRef.GetCid())
 
-	// lookup op
-	fetchedObject, err := store.Lookup(testCtx, objRef)
+	// Lookup operation
+	recordMeta, err := store.Lookup(testCtx, recordRef)
 	assert.NoErrorf(t, err, "lookup failed")
-	assert.Equal(t, object.CID(), fetchedObject.CID())
-	assert.Equal(t, object.Type(), fetchedObject.Type())
-	assert.Equal(t, object.Size(), fetchedObject.Size())
-	assert.Equal(t, object.Annotations(), fetchedObject.Annotations())
+	assert.Equal(t, recordCID, recordMeta.GetCid())
 
-	// pull op
-	fetchedReader, err := store.Pull(testCtx, objRef)
+	// Pull operation
+	pulledRecord, err := store.Pull(testCtx, recordRef)
 	assert.NoErrorf(t, err, "pull failed")
 
-	fetchedContents, _ := io.ReadAll(fetchedReader)
-	assert.Equal(t, data, fetchedContents)
+	pulledCID := pulledRecord.GetCid()
+	assert.NotEmpty(t, pulledCID, "failed to get pulled record CID")
+	assert.Equal(t, recordCID, pulledCID)
 
-	// delete op
-	err = store.Delete(testCtx, objRef)
+	// Verify the pulled agent data
+	pulledAgent := pulledRecord.GetV1Alpha1()
+	assert.NotNil(t, pulledAgent, "pulled agent should not be nil")
+	assert.Equal(t, agent.GetName(), pulledAgent.GetName())
+	assert.Equal(t, agent.GetSchemaVersion(), pulledAgent.GetSchemaVersion())
+	assert.Equal(t, agent.GetDescription(), pulledAgent.GetDescription())
+
+	// Delete operation
+	err = store.Delete(testCtx, recordRef)
 	assert.NoErrorf(t, err, "delete failed")
 
-	// lookup op
-	_, err = store.Lookup(testCtx, objRef)
+	// Lookup should fail after delete
+	_, err = store.Lookup(testCtx, recordRef)
 	assert.Error(t, err, "lookup should fail after delete")
-	assert.ErrorContains(t, err, "object not found")
+	assert.ErrorContains(t, err, "not found")
 }
 
 func BenchmarkLocalStore(b *testing.B) {
@@ -86,7 +100,7 @@ func BenchmarkLocalStore(b *testing.B) {
 
 	store := loadLocalStore(&testing.T{})
 	for step := range b.N {
-		benchmarkStep(store, benchObjectType, append(benchChunk, []byte(strconv.Itoa(step))...))
+		benchmarkStep(store, append(benchChunk, []byte(strconv.Itoa(step))...))
 	}
 }
 
@@ -97,28 +111,40 @@ func BenchmarkRemoteStore(b *testing.B) {
 
 	store := loadRemoteStore(&testing.T{})
 	for step := range b.N {
-		benchmarkStep(store, benchObjectType, append(benchChunk, []byte(strconv.Itoa(step))...))
+		benchmarkStep(store, append(benchChunk, []byte(strconv.Itoa(step))...))
 	}
 }
 
-func benchmarkStep(store types.StoreAPI, objectType coretypes.ObjectType, objectData []byte) {
-	// data to push
-	objectRef := getRefForData(objectType, objectData, nil)
+func benchmarkStep(store types.StoreAPI, testData []byte) {
+	// Create test record
+	agent := &oasfv1alpha1.Agent{
+		Name:          "bench-agent",
+		SchemaVersion: "v1alpha1",
+		Description:   "A benchmark agent",
+	}
 
-	// push op
-	pushedRef, err := store.Push(testCtx, objectRef, bytes.NewReader(objectData))
+	record := &corev1.Record{
+		Data: &corev1.Record_V1Alpha1{
+			V1Alpha1: agent,
+		},
+	}
+
+	// Record is ready for push operation
+
+	// Push operation
+	pushedRef, err := store.Push(testCtx, record)
 	if err != nil {
 		panic(err)
 	}
 
-	// lookup op
-	fetchedRef, err := store.Lookup(testCtx, pushedRef)
+	// Lookup operation
+	fetchedMeta, err := store.Lookup(testCtx, pushedRef)
 	if err != nil {
 		panic(err)
 	}
 
-	// assert equal
-	if pushedRef.CID() != fetchedRef.CID() || pushedRef.Type() != fetchedRef.Type() || pushedRef.Size() != fetchedRef.Size() {
+	// Assert equal
+	if pushedRef.GetCid() != fetchedMeta.GetCid() {
 		panic("not equal lookup")
 	}
 }
@@ -156,17 +182,4 @@ func loadRemoteStore(t *testing.T) types.StoreAPI {
 	assert.NoErrorf(t, err, "failed to create remote store")
 
 	return store
-}
-
-func getRefForData(objType coretypes.ObjectType, data []byte, meta map[string]string) types.Object {
-	object, err := testutil.CreateTestObject(testutil.TestObjectOptions{
-		ObjectType:  objType,
-		Data:        data,
-		Annotations: meta,
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	return object
 }

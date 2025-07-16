@@ -6,30 +6,16 @@ package routing
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 	"time"
 
-	coretypes "github.com/agntcy/dir/api/core/v1alpha1"
 	"github.com/agntcy/dir/server/config"
 	routingconfig "github.com/agntcy/dir/server/routing/config"
 	"github.com/agntcy/dir/server/store"
 	ociconfig "github.com/agntcy/dir/server/store/oci/config"
 	"github.com/agntcy/dir/server/types"
-	"github.com/opencontainers/go-digest"
 	"github.com/stretchr/testify/assert"
 )
-
-func getObjectRef(a *coretypes.Agent) *coretypes.ObjectRef {
-	raw, _ := json.Marshal(a) //nolint:errchkjson
-
-	return &coretypes.ObjectRef{
-		Type:        coretypes.ObjectType_OBJECT_TYPE_AGENT.String(),
-		Digest:      digest.FromBytes(raw).String(),
-		Size:        uint64(len(raw)),
-		Annotations: a.GetAnnotations(),
-	}
-}
 
 func toPtr[T any](v T) *T {
 	return &v

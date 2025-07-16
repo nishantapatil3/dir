@@ -7,8 +7,7 @@ import (
 	"context"
 	"fmt"
 
-	coretypes "github.com/agntcy/dir/api/core/v1alpha1"
-	routingtypes "github.com/agntcy/dir/api/routing/v1alpha1"
+	routingtypes "github.com/agntcy/dir/api/routing/v1alpha2"
 	"github.com/agntcy/dir/server/datastore"
 	"github.com/agntcy/dir/server/types"
 	"google.golang.org/grpc/status"
@@ -46,33 +45,27 @@ func New(ctx context.Context, store types.StoreAPI, opts types.APIOptions) (type
 	return mainRounter, nil
 }
 
-func (r *route) Publish(ctx context.Context, object *coretypes.Object, network bool) error {
+func (r *route) Publish(ctx context.Context, record types.Record) error {
 	// always publish data locally for archival/querying
-	err := r.local.Publish(ctx, object, network)
+	err := r.local.Publish(ctx, record)
 	if err != nil {
 		st := status.Convert(err)
 
 		return status.Errorf(st.Code(), "failed to publish locally: %s", st.Message())
 	}
 
-	// publish to the network if requested
-	if network {
-		return r.remote.Publish(ctx, object, network)
-	}
-
+	// publish to the network
+	// return r.remote.Publish(ctx, record)
 	return nil
 }
 
-func (r *route) List(ctx context.Context, req *routingtypes.ListRequest) (<-chan *routingtypes.ListResponse_Item, error) {
-	if !req.GetNetwork() {
-		return r.local.List(ctx, req)
-	}
-
-	return r.remote.List(ctx, req)
+func (r *route) List(ctx context.Context, req *routingtypes.ListRequest) (<-chan *routingtypes.ListResponse, error) {
+	// v1alpha2 List is always local - network search is handled by Search method
+	return r.local.List(ctx, req)
 }
 
-func (r *route) Unpublish(ctx context.Context, object *coretypes.Object, _ bool) error {
-	err := r.local.Unpublish(ctx, object)
+func (r *route) Unpublish(ctx context.Context, record types.Record) error {
+	err := r.local.Unpublish(ctx, record)
 	if err != nil {
 		st := status.Convert(err)
 

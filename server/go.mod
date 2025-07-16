@@ -41,6 +41,7 @@ require (
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/libp2p/go-libp2p-record v0.3.1 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
 	modernc.org/libc v1.22.5 // indirect
 	modernc.org/mathutil v1.5.0 // indirect
 	modernc.org/memory v1.5.0 // indirect

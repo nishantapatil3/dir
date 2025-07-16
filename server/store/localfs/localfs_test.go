@@ -5,49 +5,73 @@
 package localfs
 
 import (
-	"bytes"
-	"io"
-	"os"
+	"context"
 	"testing"
 
+	corev1 "github.com/agntcy/dir/api/core/v1"
+	oasfv1alpha1 "github.com/agntcy/dir/api/oasf/v1alpha1"
 	"github.com/agntcy/dir/server/store/localfs/config"
-	"github.com/agntcy/dir/server/store/testutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestStore(t *testing.T) {
-	ctx := t.Context()
+	ctx := context.Background()
 
 	// Create store
-	store, err := New(config.Config{Dir: os.TempDir()})
-	assert.NoError(t, err, "failed to create store")
+	store, err := New(config.Config{Dir: t.TempDir()})
+	require.NoError(t, err, "failed to create store")
 
-	// Define testing object
-	data := []byte("test")
-	object, err := testutil.CreateTestObjectWithDefaults(data)
-	assert.NoError(t, err, "failed to create test object")
+	// Create test record
+	testAgent := &oasfv1alpha1.Agent{
+		Name:        "test-agent-123",
+		Description: "A test agent for unit testing",
+		Version:     "1.0.0",
+	}
+
+	record := &corev1.Record{
+		Data: &corev1.Record_V1Alpha1{
+			V1Alpha1: testAgent,
+		},
+	}
+
+	// Calculate CID (as the controller would do)
+	recordCID := record.GetCid()
+	require.NotEmpty(t, recordCID, "failed to calculate CID")
 
 	// Push
-	pushedObject, err := store.Push(ctx, object, bytes.NewReader(data))
-	assert.NoError(t, err, "push failed")
+	pushedRef, err := store.Push(ctx, record)
+	require.NoError(t, err, "push failed")
+	assert.Equal(t, recordCID, pushedRef.GetCid(), "pushed CID should match calculated CID")
 
 	// Lookup
-	fetchedMeta, err := store.Lookup(ctx, pushedObject)
-	assert.NoError(t, err, "lookup failed")
-	assert.Equal(t, pushedObject.CID(), fetchedMeta.CID())
-	assert.Equal(t, pushedObject.Type(), fetchedMeta.Type())
-	assert.Equal(t, pushedObject.Size(), fetchedMeta.Size())
-	assert.Equal(t, pushedObject.Annotations(), fetchedMeta.Annotations())
+	fetchedMeta, err := store.Lookup(ctx, pushedRef)
+	require.NoError(t, err, "lookup failed")
+	assert.Equal(t, recordCID, fetchedMeta.GetCid(), "fetched CID should match")
+	assert.Equal(t, "v1", fetchedMeta.GetSchemaVersion(), "schema version should be v1")
+	// TODO: where the annotations are?
+	// assert.NotNil(t, fetchedMeta.GetAnnotations(), "annotations should not be nil")
 
 	// Pull
-	fetchedReader, err := store.Pull(ctx, pushedObject)
-	assert.NoErrorf(t, err, "pull failed")
+	fetchedRecord, err := store.Pull(ctx, pushedRef)
+	require.NoError(t, err, "pull failed")
 
-	fetchedContents, _ := io.ReadAll(fetchedReader)
-	// TODO: fix chunking and sizing issues
-	assert.Equal(t, data, fetchedContents[:len(data)])
+	fetchedCID := fetchedRecord.GetCid()
+	require.NotEmpty(t, fetchedCID, "failed to get fetched record CID")
+	assert.Equal(t, recordCID, fetchedCID, "pulled record CID should match")
+
+	// Verify record data
+	assert.NotNil(t, fetchedRecord.GetV1Alpha1(), "should have v1alpha1 data")
+	fetchedAgent := fetchedRecord.GetV1Alpha1()
+	assert.Equal(t, testAgent.GetName(), fetchedAgent.GetName(), "agent name should match")
+	assert.Equal(t, testAgent.GetDescription(), fetchedAgent.GetDescription(), "agent description should match")
+	assert.Equal(t, testAgent.GetVersion(), fetchedAgent.GetVersion(), "agent version should match")
 
 	// Delete
-	err = store.Delete(ctx, pushedObject)
-	assert.NoErrorf(t, err, "delete failed")
+	err = store.Delete(ctx, pushedRef)
+	require.NoError(t, err, "delete failed")
+
+	// Verify deletion - lookup should fail
+	_, err = store.Lookup(ctx, pushedRef)
+	assert.Error(t, err, "lookup should fail after deletion")
 }

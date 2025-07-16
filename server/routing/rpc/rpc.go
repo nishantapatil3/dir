@@ -6,12 +6,10 @@ package rpc
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"io"
 
-	coretypes "github.com/agntcy/dir/api/core/v1alpha1"
-	routetypes "github.com/agntcy/dir/api/routing/v1alpha1"
+	corev1 "github.com/agntcy/dir/api/core/v1"
+	routingtypes "github.com/agntcy/dir/api/routing/v1alpha2"
 	"github.com/agntcy/dir/server/types"
 	"github.com/agntcy/dir/utils/logging"
 	rpc "github.com/libp2p/go-libp2p-gorpc"
@@ -20,6 +18,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 var logger = logging.Logger("rpc")
@@ -40,16 +39,14 @@ type RPCAPI struct {
 }
 
 type PullResponse struct {
-	Digest      string
-	Type        string
+	Cid         string
 	Size        uint64
 	Annotations map[string]string
 	Data        []byte
 }
 
 type LookupResponse struct {
-	Digest      string
-	Type        string
+	Cid         string
 	Size        uint64
 	Annotations map[string]string
 }
@@ -63,13 +60,12 @@ type ListResponse struct {
 	Labels      []string
 	LabelCounts map[string]uint64
 	Peer        string
-	Digest      string
-	Type        string
+	Cid         string
 	Size        uint64
 	Annotations map[string]string
 }
 
-func (r *RPCAPI) Lookup(ctx context.Context, in *coretypes.ObjectRef, out *LookupResponse) error {
+func (r *RPCAPI) Lookup(ctx context.Context, in *corev1.RecordRef, out *LookupResponse) error {
 	logger.Debug("P2p RPC: Executing Lookup request on remote peer", "peer", r.service.host.ID())
 
 	// validate request
@@ -77,26 +73,30 @@ func (r *RPCAPI) Lookup(ctx context.Context, in *coretypes.ObjectRef, out *Looku
 		return status.Error(codes.InvalidArgument, "invalid request: nil request/response") //nolint:wrapcheck
 	}
 
-	// handle lookup
-	meta, err := r.service.store.Lookup(ctx, in)
+	// handle lookup - get the full record
+	record, err := r.service.store.Pull(ctx, in)
 	if err != nil {
 		st := status.Convert(err)
-
 		return status.Errorf(st.Code(), "failed to lookup: %s", st.Message())
+	}
+
+	// calculate record size from marshaled protobuf data
+	recordBytes, err := proto.Marshal(record)
+	if err != nil {
+		return status.Errorf(codes.Internal, "failed to marshal record for size calculation: %v", err)
 	}
 
 	// write result
 	*out = LookupResponse{
-		Digest:      meta.GetDigest(),
-		Type:        meta.GetType(),
-		Size:        meta.GetSize(),
-		Annotations: meta.GetAnnotations(),
+		Cid:         record.GetCid(),
+		Size:        uint64(len(recordBytes)),
+		Annotations: map[string]string{}, // TODO: get annotations from record data
 	}
 
 	return nil
 }
 
-func (r *RPCAPI) Pull(ctx context.Context, in *coretypes.ObjectRef, out *PullResponse) error {
+func (r *RPCAPI) Pull(ctx context.Context, in *corev1.RecordRef, out *PullResponse) error {
 	logger.Debug("P2p RPC: Executing Pull request on remote peer", "peer", r.service.host.ID())
 
 	// validate request
@@ -104,45 +104,34 @@ func (r *RPCAPI) Pull(ctx context.Context, in *coretypes.ObjectRef, out *PullRes
 		return status.Error(codes.InvalidArgument, "invalid request: nil request/response") //nolint:wrapcheck
 	}
 
-	// lookup
-	meta, err := r.service.store.Lookup(ctx, in)
+	// pull record directly
+	record, err := r.service.store.Pull(ctx, in)
 	if err != nil {
 		st := status.Convert(err)
-
-		return status.Errorf(st.Code(), "failed to lookup: %s", st.Message())
-	}
-
-	// validate lookup before pull
-	if meta.GetType() != coretypes.ObjectType_OBJECT_TYPE_AGENT.String() {
-		return status.Errorf(codes.Internal, "can only pull agent object")
-	}
-
-	if meta.GetSize() > MaxPullSize {
-		return status.Errorf(codes.Internal, "object too large to pull: %d bytes", meta.GetSize())
-	}
-
-	// pull data
-	reader, err := r.service.store.Pull(ctx, meta)
-	if err != nil {
-		st := status.Convert(err)
-
 		return status.Errorf(st.Code(), "failed to pull: %s", st.Message())
 	}
-	defer reader.Close()
 
-	// read result from reader
-	data, err := io.ReadAll(io.LimitReader(reader, MaxPullSize))
+	// validate record type - check if it contains agent data
+	if record.GetV1Alpha1() == nil && record.GetV1Alpha2() == nil {
+		return status.Errorf(codes.Internal, "can only pull agent records")
+	}
+
+	// marshal record data using protobuf for consistency with CID calculation
+	recordBytes, err := proto.Marshal(record)
 	if err != nil {
-		return status.Errorf(codes.Internal, "failed to read data: %v", err)
+		return status.Errorf(codes.Internal, "failed to marshal record: %v", err)
+	}
+
+	if uint64(len(recordBytes)) > MaxPullSize {
+		return status.Errorf(codes.Internal, "record too large to pull: %d bytes", len(recordBytes))
 	}
 
 	// set output
 	*out = PullResponse{
-		Digest:      meta.GetDigest(),
-		Type:        meta.GetType(),
-		Size:        meta.GetSize(),
-		Data:        data,
-		Annotations: meta.GetAnnotations(),
+		Cid:         record.GetCid(),
+		Size:        uint64(len(recordBytes)),
+		Data:        recordBytes,
+		Annotations: map[string]string{}, // TODO: get annotations from record data
 	}
 
 	return nil
@@ -154,9 +143,18 @@ func (r *RPCAPI) List(ctx context.Context, inCh <-chan *ListRequest, outCh chan<
 	for in := range inCh {
 		logger.Debug("P2p RPC: Executing List request on remote peer", "peer", r.service.host.ID())
 
+		// convert labels to queries
+		queries := make([]*routingtypes.RecordQuery, len(in.Labels))
+		for i, label := range in.Labels {
+			queries[i] = &routingtypes.RecordQuery{
+				Type:  routingtypes.RecordQueryType_RECORD_QUERY_TYPE_SKILL, // assume skills for now
+				Value: label,
+			}
+		}
+
 		// local list
-		listCh, err := r.service.route.List(ctx, &routetypes.ListRequest{
-			Labels: in.Labels,
+		listCh, err := r.service.route.List(ctx, &routingtypes.ListRequest{
+			Queries: queries,
 		})
 		if err != nil {
 			st := status.Convert(err)
@@ -167,16 +165,15 @@ func (r *RPCAPI) List(ctx context.Context, inCh <-chan *ListRequest, outCh chan<
 		// resolve response before forwarding
 		for item := range listCh {
 			result := &ListResponse{
-				Labels:      item.GetLabels(),
-				LabelCounts: item.GetLabelCounts(),
+				Labels:      in.Labels,                    // return original labels for compatibility
+				LabelCounts: map[string]uint64{},          // TODO: calculate label counts if needed
 				Peer:        r.service.host.ID().String(), // remote peer where local list was called
 			}
 
-			if record := item.GetRecord(); record != nil {
-				result.Annotations = record.GetAnnotations()
-				result.Size = record.GetSize()
-				result.Digest = record.GetDigest()
-				result.Type = record.GetType()
+			if recordRef := item.GetRecordRef(); recordRef != nil {
+				result.Annotations = map[string]string{} // TODO: get annotations from record
+				result.Size = 0                          // TODO: calculate size if needed
+				result.Cid = recordRef.GetCid()
 			}
 
 			// forward data
@@ -217,7 +214,7 @@ func New(host host.Host, store types.StoreAPI, route types.RoutingAPI) (*Service
 	return service, nil
 }
 
-func (s *Service) Lookup(ctx context.Context, peer peer.ID, req *coretypes.ObjectRef) (*coretypes.ObjectRef, error) {
+func (s *Service) Lookup(ctx context.Context, peer peer.ID, req *corev1.RecordRef) (*corev1.RecordRef, error) {
 	logger.Debug("P2p RPC: Executing Lookup request on remote peer", "peer", peer, "req", req)
 
 	var resp LookupResponse
@@ -227,15 +224,12 @@ func (s *Service) Lookup(ctx context.Context, peer peer.ID, req *coretypes.Objec
 		return nil, status.Errorf(codes.Internal, "failed to call remote peer: %v", err)
 	}
 
-	return &coretypes.ObjectRef{
-		Digest:      resp.Digest,
-		Type:        resp.Type,
-		Size:        resp.Size,
-		Annotations: resp.Annotations,
+	return &corev1.RecordRef{
+		Cid: resp.Cid,
 	}, nil
 }
 
-func (s *Service) Pull(ctx context.Context, peer peer.ID, req *coretypes.ObjectRef) (*coretypes.Object, error) {
+func (s *Service) Pull(ctx context.Context, peer peer.ID, req *corev1.RecordRef) (*corev1.Record, error) {
 	logger.Debug("P2p RPC: Executing Pull request on remote peer", "peer", peer, "req", req)
 
 	var resp PullResponse
@@ -245,33 +239,24 @@ func (s *Service) Pull(ctx context.Context, peer peer.ID, req *coretypes.ObjectR
 		return nil, status.Errorf(codes.Internal, "failed to call remote peer: %v", err)
 	}
 
-	// convert to agent
-	// TODO
-	var agent *coretypes.Agent
-	if err := json.Unmarshal(resp.Data, &agent); err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to unmarshal agent data: %v", err)
+	// unmarshal protobuf data to record
+	var record corev1.Record
+	if err := proto.Unmarshal(resp.Data, &record); err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to unmarshal record data: %v", err)
 	}
 
-	return &coretypes.Object{
-		Ref: &coretypes.ObjectRef{
-			Digest:      resp.Digest,
-			Type:        resp.Type,
-			Size:        resp.Size,
-			Annotations: resp.Annotations,
-		},
-		Agent: agent,
-	}, nil
+	return &record, nil
 }
 
 // range over the result channel, then read the error after the loop.
 // this is done in best effort mode.
 //
 //nolint:mnd
-func (s *Service) List(ctx context.Context, peers []peer.ID, req *routetypes.ListRequest) (<-chan *routetypes.ListResponse_Item, error) {
+func (s *Service) List(ctx context.Context, peers []peer.ID, req *routingtypes.ListRequest) (<-chan *corev1.RecordRef, error) {
 	logger.Debug("P2p RPC: Executing List request on remote peers", "peers", peers, "req", req)
 
 	// reserve reasonable buffer size for output results
-	respCh := make(chan *routetypes.ListResponse_Item, 10000)
+	respCh := make(chan *corev1.RecordRef, 10000)
 
 	// run processing in the background
 	outCh := make(chan *ListResponse, 10000) // used as intermediary forwarding channel
@@ -279,10 +264,17 @@ func (s *Service) List(ctx context.Context, peers []peer.ID, req *routetypes.Lis
 		// run logic in the background
 		// prepare inputs for each call
 		inCh := make(chan *ListRequest, len(peers)+1)
+
+		// convert queries back to labels for compatibility with internal RPC
+		labels := make([]string, len(req.GetQueries()))
+		for i, query := range req.GetQueries() {
+			labels[i] = query.GetValue()
+		}
+
 		for _, peer := range peers {
 			inCh <- &ListRequest{
 				Peer:   peer.String(),
-				Labels: req.GetLabels(),
+				Labels: labels,
 			}
 		}
 
@@ -318,7 +310,7 @@ func (s *Service) List(ctx context.Context, peers []peer.ID, req *routetypes.Lis
 
 		// forward data to response channel
 		for out := range outCh {
-			uniqueKey := out.Peer + out.Digest
+			uniqueKey := out.Peer + out.Cid
 
 			// check if we have already seen this peer
 			if _, ok := seenPeerAgents[uniqueKey]; ok {
@@ -326,18 +318,8 @@ func (s *Service) List(ctx context.Context, peers []peer.ID, req *routetypes.Lis
 			}
 
 			seenPeerAgents[uniqueKey] = struct{}{}
-			respCh <- &routetypes.ListResponse_Item{
-				Labels:      out.Labels,
-				LabelCounts: out.LabelCounts,
-				Peer: &routetypes.Peer{
-					Id: out.Peer,
-				},
-				Record: &coretypes.ObjectRef{
-					Digest:      out.Digest,
-					Type:        out.Type,
-					Size:        out.Size,
-					Annotations: out.Annotations,
-				},
+			respCh <- &corev1.RecordRef{
+				Cid: out.Cid,
 			}
 		}
 	}()

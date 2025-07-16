@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	corev1 "github.com/agntcy/dir/api/core/v1"
 	searchtypes "github.com/agntcy/dir/api/search/v1alpha2"
 	"github.com/agntcy/dir/server/types"
 	"github.com/agntcy/dir/utils/logging"
@@ -41,7 +42,11 @@ func (c *searchCtlr) Search(req *searchtypes.SearchRequest, srv searchtypes.Sear
 	}
 
 	for _, r := range records {
-		if err := srv.Send(&searchtypes.SearchResponse{RecordCid: r.GetCID()}); err != nil {
+		if err := srv.Send(&searchtypes.SearchResponse{
+			RecordRef: &corev1.RecordRef{
+				Cid: r.GetCID(),
+			},
+		}); err != nil {
 			return fmt.Errorf("failed to send record: %w", err)
 		}
 	}
