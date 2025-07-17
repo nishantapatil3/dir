@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	corev1 "github.com/agntcy/dir/api/core/v1"
-	oasfv1alpha1 "github.com/agntcy/dir/api/oasf/v1alpha1"
+	objectsv1 "github.com/agntcy/dir/api/objects/v1"
 	"github.com/agntcy/dir/server/store/localfs/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,15 +23,15 @@ func TestStore(t *testing.T) {
 	require.NoError(t, err, "failed to create store")
 
 	// Create test record
-	testAgent := &oasfv1alpha1.Agent{
+	testAgent := &objectsv1.Agent{
 		Name:        "test-agent-123",
 		Description: "A test agent for unit testing",
 		Version:     "1.0.0",
 	}
 
 	record := &corev1.Record{
-		Data: &corev1.Record_V1Alpha1{
-			V1Alpha1: testAgent,
+		Data: &corev1.Record_V1{
+			V1: testAgent,
 		},
 	}
 
@@ -61,8 +61,8 @@ func TestStore(t *testing.T) {
 	assert.Equal(t, recordCID, fetchedCID, "pulled record CID should match")
 
 	// Verify record data
-	assert.NotNil(t, fetchedRecord.GetV1Alpha1(), "should have v1alpha1 data")
-	fetchedAgent := fetchedRecord.GetV1Alpha1()
+	assert.NotNil(t, fetchedRecord.GetV1(), "should have v1 data")
+	fetchedAgent := fetchedRecord.GetV1()
 	assert.Equal(t, testAgent.GetName(), fetchedAgent.GetName(), "agent name should match")
 	assert.Equal(t, testAgent.GetDescription(), fetchedAgent.GetDescription(), "agent description should match")
 	assert.Equal(t, testAgent.GetVersion(), fetchedAgent.GetVersion(), "agent version should match")

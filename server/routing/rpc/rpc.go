@@ -112,7 +112,7 @@ func (r *RPCAPI) Pull(ctx context.Context, in *corev1.RecordRef, out *PullRespon
 	}
 
 	// validate record type - check if it contains agent data
-	if record.GetV1Alpha1() == nil && record.GetV1Alpha2() == nil {
+	if record.GetV1() == nil && record.GetV3() == nil {
 		return status.Errorf(codes.Internal, "can only pull agent records")
 	}
 

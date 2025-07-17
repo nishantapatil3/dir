@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	corev1 "github.com/agntcy/dir/api/core/v1"
-	oasfv1alpha1 "github.com/agntcy/dir/api/oasf/v1alpha1"
-	oasfv1alpha2 "github.com/agntcy/dir/api/oasf/v1alpha2"
+	objectsv1 "github.com/agntcy/dir/api/objects/v1"
+	objectsv3 "github.com/agntcy/dir/api/objects/v3"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -273,20 +273,20 @@ func TestExtractMetadataFromRecord(t *testing.T) {
 		{
 			name: "V1Alpha1 record with basic data",
 			record: &corev1.Record{
-				Data: &corev1.Record_V1Alpha1{
-					V1Alpha1: &oasfv1alpha1.Agent{
+				Data: &corev1.Record_V1{
+					V1: &objectsv1.Agent{
 						Name:        "test-agent",
 						Version:     "1.0.0",
 						Description: "Test agent",
-						Skills: []*oasfv1alpha1.Skill{
+						Skills: []*objectsv1.Skill{
 							{CategoryName: stringPtr("nlp"), ClassName: stringPtr("processing")},
 							{CategoryName: stringPtr("translation"), ClassName: stringPtr("service")},
 						},
-						Locators: []*oasfv1alpha1.Locator{
+						Locators: []*objectsv1.Locator{
 							{Type: "docker"},
 							{Type: "helm"},
 						},
-						Extensions: []*oasfv1alpha1.Extension{
+						Extensions: []*objectsv1.Extension{
 							{Name: "security"},
 							{Name: "monitoring"},
 						},
@@ -310,18 +310,18 @@ func TestExtractMetadataFromRecord(t *testing.T) {
 		{
 			name: "V1Alpha2 record with basic data",
 			record: &corev1.Record{
-				Data: &corev1.Record_V1Alpha2{
-					V1Alpha2: &oasfv1alpha2.Record{
+				Data: &corev1.Record_V3{
+					V3: &objectsv3.Record{
 						Name:        "test-record",
 						Version:     "2.0.0",
 						Description: "Test record v2",
-						Skills: []*oasfv1alpha2.Skill{
+						Skills: []*objectsv3.Skill{
 							{Name: "machine-learning"},
 						},
-						Locators: []*oasfv1alpha2.Locator{
+						Locators: []*objectsv3.Locator{
 							{Type: "kubernetes"},
 						},
-						Extensions: []*oasfv1alpha2.Extension{
+						Extensions: []*objectsv3.Extension{
 							{Name: "logging"},
 						},
 						Annotations: map[string]string{
@@ -362,17 +362,17 @@ func TestExtractMetadataFromRecord(t *testing.T) {
 
 func TestGenerateDiscoveryTags(t *testing.T) {
 	// Test the main public function
-	agent := &oasfv1alpha1.Agent{
+	agent := &objectsv1.Agent{
 		Name:    "test-agent",
 		Version: "1.0.0",
-		Skills: []*oasfv1alpha1.Skill{
+		Skills: []*objectsv1.Skill{
 			{CategoryName: stringPtr("nlp"), ClassName: stringPtr("processing")},
 		},
 	}
 
 	record := &corev1.Record{
-		Data: &corev1.Record_V1Alpha1{
-			V1Alpha1: agent,
+		Data: &corev1.Record_V1{
+			V1: agent,
 		},
 	}
 

@@ -30,10 +30,10 @@ func extractManifestAnnotations(record *corev1.Record) map[string]string {
 	}
 
 	// Determine OASF version
-	if record.GetV1Alpha1() != nil {
-		annotations[ManifestKeyOASFVersion] = "v1alpha1"
-	} else if record.GetV1Alpha2() != nil {
-		annotations[ManifestKeyOASFVersion] = "v1alpha2"
+	if record.GetV1() != nil {
+		annotations[ManifestKeyOASFVersion] = "v1"
+	} else if record.GetV3() != nil {
+		annotations[ManifestKeyOASFVersion] = "v3"
 	}
 
 	// Core identity fields (version-agnostic via adapter)
@@ -123,10 +123,10 @@ func createDescriptorAnnotations(record *corev1.Record) map[string]string {
 	annotations[DescriptorKeyCompression] = "none"
 
 	// Schema information based on record version
-	if record.GetV1Alpha1() != nil {
-		annotations[DescriptorKeySchema] = "oasf.v1alpha1.Agent"
-	} else if record.GetV1Alpha2() != nil {
-		annotations[DescriptorKeySchema] = "oasf.v1alpha2.Record"
+	if record.GetV1() != nil {
+		annotations[DescriptorKeySchema] = "oasf.v1.Agent"
+	} else if record.GetV3() != nil {
+		annotations[DescriptorKeySchema] = "oasf.v3.Record"
 	} else {
 		annotations[DescriptorKeySchema] = "unknown"
 	}
@@ -136,9 +136,9 @@ func createDescriptorAnnotations(record *corev1.Record) map[string]string {
 
 	// Check if record has signature
 	hasSig := false
-	if v1alpha1 := record.GetV1Alpha1(); v1alpha1 != nil && v1alpha1.GetSignature() != nil {
+	if v1 := record.GetV1(); v1 != nil && v1.GetSignature() != nil {
 		hasSig = true
-	} else if v1alpha2 := record.GetV1Alpha2(); v1alpha2 != nil && v1alpha2.GetSignature() != nil {
+	} else if v3 := record.GetV3(); v3 != nil && v3.GetSignature() != nil {
 		hasSig = true
 	}
 	annotations[DescriptorKeySigned] = strconv.FormatBool(hasSig)

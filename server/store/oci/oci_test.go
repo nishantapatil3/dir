@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	corev1 "github.com/agntcy/dir/api/core/v1"
-	oasfv1alpha1 "github.com/agntcy/dir/api/oasf/v1alpha1"
+	objectsv1 "github.com/agntcy/dir/api/objects/v1"
 	ociconfig "github.com/agntcy/dir/server/store/oci/config"
 	"github.com/agntcy/dir/server/types"
 	"github.com/stretchr/testify/assert"
@@ -42,15 +42,15 @@ func TestStorePushLookupPullDelete(t *testing.T) {
 	store := loadLocalStore(t)
 
 	// Create test record
-	agent := &oasfv1alpha1.Agent{
+	agent := &objectsv1.Agent{
 		Name:          "test-agent",
-		SchemaVersion: "v1alpha1",
+		SchemaVersion: "v1",
 		Description:   "A test agent",
 	}
 
 	record := &corev1.Record{
-		Data: &corev1.Record_V1Alpha1{
-			V1Alpha1: agent,
+		Data: &corev1.Record_V1{
+			V1: agent,
 		},
 	}
 
@@ -77,7 +77,7 @@ func TestStorePushLookupPullDelete(t *testing.T) {
 	assert.Equal(t, recordCID, pulledCID)
 
 	// Verify the pulled agent data
-	pulledAgent := pulledRecord.GetV1Alpha1()
+	pulledAgent := pulledRecord.GetV1()
 	assert.NotNil(t, pulledAgent, "pulled agent should not be nil")
 	assert.Equal(t, agent.GetName(), pulledAgent.GetName())
 	assert.Equal(t, agent.GetSchemaVersion(), pulledAgent.GetSchemaVersion())
@@ -117,15 +117,15 @@ func BenchmarkRemoteStore(b *testing.B) {
 
 func benchmarkStep(store types.StoreAPI, testData []byte) {
 	// Create test record
-	agent := &oasfv1alpha1.Agent{
+	agent := &objectsv1.Agent{
 		Name:          "bench-agent",
-		SchemaVersion: "v1alpha1",
+		SchemaVersion: "v1",
 		Description:   "A benchmark agent",
 	}
 
 	record := &corev1.Record{
-		Data: &corev1.Record_V1Alpha1{
-			V1Alpha1: agent,
+		Data: &corev1.Record_V1{
+			V1: agent,
 		},
 	}
 

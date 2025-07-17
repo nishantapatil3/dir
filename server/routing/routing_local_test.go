@@ -14,7 +14,7 @@ import (
 	"time"
 
 	corev1 "github.com/agntcy/dir/api/core/v1"
-	oasfv1alpha1 "github.com/agntcy/dir/api/oasf/v1alpha1"
+	objectsv1 "github.com/agntcy/dir/api/objects/v1"
 	routingtypes "github.com/agntcy/dir/api/routing/v1alpha2"
 	"github.com/agntcy/dir/server/datastore"
 	"github.com/agntcy/dir/server/types"
@@ -86,23 +86,23 @@ func (m *mockStore) Delete(_ context.Context, ref *corev1.RecordRef) error {
 }
 
 // Helper function to create a v1 Record from v1alpha1 Agent
-func createRecordFromAgent(agent *oasfv1alpha1.Agent) *corev1.Record {
+func createRecordFromAgent(agent *objectsv1.Agent) *corev1.Record {
 	return &corev1.Record{
-		Data: &corev1.Record_V1Alpha1{
-			V1Alpha1: agent,
+		Data: &corev1.Record_V1{
+			V1: agent,
 		},
 	}
 }
 
 func TestPublishList_ValidSingleSkillQuery(t *testing.T) {
 	var (
-		testAgent = &oasfv1alpha1.Agent{
-			Skills: []*oasfv1alpha1.Skill{
+		testAgent = &objectsv1.Agent{
+			Skills: []*objectsv1.Skill{
 				{CategoryName: toPtr("category1"), ClassName: toPtr("class1")},
 			},
 		}
-		testAgent2 = &oasfv1alpha1.Agent{
-			Skills: []*oasfv1alpha1.Skill{
+		testAgent2 = &objectsv1.Agent{
+			Skills: []*objectsv1.Skill{
 				{CategoryName: toPtr("category1"), ClassName: toPtr("class1")},
 				{CategoryName: toPtr("category2"), ClassName: toPtr("class2")},
 			},
@@ -232,8 +232,8 @@ func TestPublishList_ValidSingleSkillQuery(t *testing.T) {
 func TestPublishList_ValidMultiSkillQuery(t *testing.T) {
 	// Test data
 	var (
-		testAgent = &oasfv1alpha1.Agent{
-			Skills: []*oasfv1alpha1.Skill{
+		testAgent = &objectsv1.Agent{
+			Skills: []*objectsv1.Skill{
 				{CategoryName: toPtr("category1"), ClassName: toPtr("class1")},
 				{CategoryName: toPtr("category2"), ClassName: toPtr("class2")},
 			},
@@ -332,8 +332,8 @@ func Benchmark_RouteLocal(b *testing.B) {
 	badgerRouter := newLocal(store, badgerDatastore)
 	inMemoryRouter := newLocal(store, inMemoryDatastore)
 
-	agent := &oasfv1alpha1.Agent{
-		Skills: []*oasfv1alpha1.Skill{
+	agent := &objectsv1.Agent{
+		Skills: []*objectsv1.Skill{
 			{CategoryName: toPtr("category1"), ClassName: toPtr("class1")},
 		},
 	}

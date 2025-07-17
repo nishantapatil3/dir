@@ -5,8 +5,8 @@ syntax = "proto3";
 
 package core.v1;
 
-import "oasf/v1alpha1/agent.proto";
-import "oasf/v1alpha2/record.proto";
+import "objects/v1/agent.proto";
+import "objects/v3/record.proto";
 
 // Defines a reference or a globally unique content identifier of a record.
 message RecordRef {
@@ -36,7 +36,7 @@ message RecordMeta {
 // record versions in the same service or application.
 message Record {
   oneof data {
-    oasf.v1alpha1.Agent v1alpha1 = 1;
-    oasf.v1alpha2.Record v1alpha2 = 2;
+    objects.v1.Agent v1 = 1;
+    objects.v3.Record v3 = 2;
   }
 }

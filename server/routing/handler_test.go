@@ -9,16 +9,16 @@ import (
 	"time"
 
 	corev1 "github.com/agntcy/dir/api/core/v1"
-	oasfv1alpha1 "github.com/agntcy/dir/api/oasf/v1alpha1"
+	objectsv1 "github.com/agntcy/dir/api/objects/v1"
 	"github.com/ipfs/go-cid"
 	"github.com/stretchr/testify/assert"
 )
 
 // Helper function to create a v1 Record from v1alpha1 Agent
-func createRecordFromAgentForHandler(agent *oasfv1alpha1.Agent) *corev1.Record {
+func createRecordFromAgentForHandler(agent *objectsv1.Agent) *corev1.Record {
 	return &corev1.Record{
-		Data: &corev1.Record_V1Alpha1{
-			V1Alpha1: agent,
+		Data: &corev1.Record_V1{
+			V1: agent,
 		},
 	}
 }
@@ -28,11 +28,11 @@ func createRecordFromAgentForHandler(agent *oasfv1alpha1.Agent) *corev1.Record {
 // A discovers it retrieves the key metadata from B.
 func TestHandler(t *testing.T) {
 	// Test data
-	testAgent := &oasfv1alpha1.Agent{
-		Skills: []*oasfv1alpha1.Skill{
+	testAgent := &objectsv1.Agent{
+		Skills: []*objectsv1.Skill{
 			{CategoryName: toPtr("category1"), ClassName: toPtr("class1")},
 		},
-		Locators: []*oasfv1alpha1.Locator{
+		Locators: []*objectsv1.Locator{
 			{Type: "type1", Url: "url1"},
 		},
 	}

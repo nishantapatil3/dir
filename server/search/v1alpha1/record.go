@@ -4,16 +4,16 @@
 package v1alpha1
 
 import (
-	oasfv1alpha1 "github.com/agntcy/dir/api/oasf/v1alpha1"
+	objectsv1 "github.com/agntcy/dir/api/objects/v1"
 	"github.com/agntcy/dir/server/types"
 )
 
 type AgentAdapter struct {
-	*oasfv1alpha1.Agent
+	*objectsv1.Agent
 	cid string
 }
 
-func NewAgentAdapter(agent *oasfv1alpha1.Agent, cid string) *AgentAdapter {
+func NewAgentAdapter(agent *objectsv1.Agent, cid string) *AgentAdapter {
 	return &AgentAdapter{
 		Agent: agent,
 		cid:   cid,

@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	corev1 "github.com/agntcy/dir/api/core/v1"
-	oasfv1alpha1 "github.com/agntcy/dir/api/oasf/v1alpha1"
+	objectsv1 "github.com/agntcy/dir/api/objects/v1"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/sync"
 	"github.com/stretchr/testify/assert"
@@ -46,8 +46,8 @@ func TestCachedStore_Push(t *testing.T) {
 
 	// Create test record
 	record := &corev1.Record{
-		Data: &corev1.Record_V1Alpha1{
-			V1Alpha1: &oasfv1alpha1.Agent{
+		Data: &corev1.Record_V1{
+			V1: &objectsv1.Agent{
 				Name:        "test-agent",
 				Description: "Test agent",
 				Version:     "1.0.0",
@@ -76,7 +76,7 @@ func TestCachedStore_Push(t *testing.T) {
 	// Test that record can be pulled from cache (verifies it was cached)
 	pulledRecord, err := cachedStore.Pull(ctx, expectedRef)
 	require.NoError(t, err)
-	assert.Equal(t, record.GetV1Alpha1().GetName(), pulledRecord.GetV1Alpha1().GetName())
+	assert.Equal(t, record.GetV1().GetName(), pulledRecord.GetV1().GetName())
 
 	// Verify mock was called only once (push), not for the pull (cache hit)
 	mockStore.AssertExpectations(t)
@@ -87,8 +87,8 @@ func TestCachedStore_Pull_CacheHit(t *testing.T) {
 
 	// Create test record
 	record := &corev1.Record{
-		Data: &corev1.Record_V1Alpha1{
-			V1Alpha1: &oasfv1alpha1.Agent{
+		Data: &corev1.Record_V1{
+			V1: &objectsv1.Agent{
 				Name:        "test-agent",
 				Description: "Test agent",
 				Version:     "1.0.0",
@@ -111,7 +111,7 @@ func TestCachedStore_Pull_CacheHit(t *testing.T) {
 	// Test Pull - should hit cache and not call source store
 	pulledRecord, err := cachedStore.Pull(ctx, ref)
 	require.NoError(t, err)
-	assert.Equal(t, record.GetV1Alpha1().GetName(), pulledRecord.GetV1Alpha1().GetName())
+	assert.Equal(t, record.GetV1().GetName(), pulledRecord.GetV1().GetName())
 
 	// Verify mock was NOT called (cache hit)
 	mockStore.AssertNotCalled(t, "Pull")
@@ -122,8 +122,8 @@ func TestCachedStore_Pull_CacheMiss(t *testing.T) {
 
 	// Create test record
 	record := &corev1.Record{
-		Data: &corev1.Record_V1Alpha1{
-			V1Alpha1: &oasfv1alpha1.Agent{
+		Data: &corev1.Record_V1{
+			V1: &objectsv1.Agent{
 				Name:        "test-agent",
 				Description: "Test agent",
 				Version:     "1.0.0",
@@ -145,12 +145,12 @@ func TestCachedStore_Pull_CacheMiss(t *testing.T) {
 	// Test Pull - should miss cache and call source store
 	pulledRecord, err := cachedStore.Pull(ctx, ref)
 	require.NoError(t, err)
-	assert.Equal(t, record.GetV1Alpha1().GetName(), pulledRecord.GetV1Alpha1().GetName())
+	assert.Equal(t, record.GetV1().GetName(), pulledRecord.GetV1().GetName())
 
 	// Test that subsequent pull hits cache (verifies it was cached after first pull)
 	pulledRecord2, err := cachedStore.Pull(ctx, ref)
 	require.NoError(t, err)
-	assert.Equal(t, record.GetV1Alpha1().GetName(), pulledRecord2.GetV1Alpha1().GetName())
+	assert.Equal(t, record.GetV1().GetName(), pulledRecord2.GetV1().GetName())
 
 	// Verify mock was called only once (first pull), not for the second pull (cache hit)
 	mockStore.AssertExpectations(t)
@@ -229,8 +229,8 @@ func TestCachedStore_Delete(t *testing.T) {
 
 	// Create test record and metadata
 	record := &corev1.Record{
-		Data: &corev1.Record_V1Alpha1{
-			V1Alpha1: &oasfv1alpha1.Agent{
+		Data: &corev1.Record_V1{
+			V1: &objectsv1.Agent{
 				Name:        "test-agent",
 				Description: "Test agent",
 				Version:     "1.0.0",

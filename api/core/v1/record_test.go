@@ -6,8 +6,8 @@ package corev1
 import (
 	"testing"
 
-	oasfv1alpha1 "github.com/agntcy/dir/api/oasf/v1alpha1"
-	oasfv1alpha2 "github.com/agntcy/dir/api/oasf/v1alpha2"
+	objectsv1 "github.com/agntcy/dir/api/objects/v1"
+	objectsv3 "github.com/agntcy/dir/api/objects/v3"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -21,8 +21,8 @@ func TestRecord_GetCid(t *testing.T) {
 		{
 			name: "v1alpha1 agent record",
 			record: &Record{
-				Data: &Record_V1Alpha1{
-					V1Alpha1: &oasfv1alpha1.Agent{
+				Data: &Record_V1{
+					V1: &objectsv1.Agent{
 						Name:          "test-agent",
 						SchemaVersion: "v1alpha1",
 						Description:   "A test agent",
@@ -34,13 +34,13 @@ func TestRecord_GetCid(t *testing.T) {
 		{
 			name: "v1alpha2 record",
 			record: &Record{
-				Data: &Record_V1Alpha2{
-					V1Alpha2: &oasfv1alpha2.Record{
+				Data: &Record_V3{
+					V3: &objectsv3.Record{
 						Name:          "test-agent-v2",
 						SchemaVersion: "v1alpha2",
 						Description:   "A test agent in v1alpha2 record",
 						Version:       "1.0.0",
-						Extensions: []*oasfv1alpha2.Extension{
+						Extensions: []*objectsv3.Extension{
 							{
 								Name:    "test-extension",
 								Version: "1.0.0",
@@ -86,21 +86,21 @@ func TestRecord_GetCid(t *testing.T) {
 
 func TestRecord_GetCid_Consistency(t *testing.T) {
 	// Create two identical v1alpha1 records
-	agent := &oasfv1alpha1.Agent{
+	agent := &objectsv1.Agent{
 		Name:          "test-agent",
 		SchemaVersion: "v1alpha1",
 		Description:   "A test agent",
 	}
 
 	record1 := &Record{
-		Data: &Record_V1Alpha1{
-			V1Alpha1: agent,
+		Data: &Record_V1{
+			V1: agent,
 		},
 	}
 
 	record2 := &Record{
-		Data: &Record_V1Alpha1{
-			V1Alpha1: &oasfv1alpha1.Agent{
+		Data: &Record_V1{
+			V1: &objectsv1.Agent{
 				Name:          "test-agent",
 				SchemaVersion: "v1alpha1",
 				Description:   "A test agent",
@@ -118,13 +118,13 @@ func TestRecord_GetCid_Consistency(t *testing.T) {
 func TestRecord_GetCid_V1Alpha2_Consistency(t *testing.T) {
 	// Create two identical v1alpha2 records
 	v1alpha2Record1 := &Record{
-		Data: &Record_V1Alpha2{
-			V1Alpha2: &oasfv1alpha2.Record{
+		Data: &Record_V3{
+			V3: &objectsv3.Record{
 				Name:          "test-agent-v2",
 				SchemaVersion: "v1alpha2",
 				Description:   "A test agent in v1alpha2 record",
 				Version:       "1.0.0",
-				Extensions: []*oasfv1alpha2.Extension{
+				Extensions: []*objectsv3.Extension{
 					{
 						Name:    "test-extension",
 						Version: "1.0.0",
@@ -135,13 +135,13 @@ func TestRecord_GetCid_V1Alpha2_Consistency(t *testing.T) {
 	}
 
 	v1alpha2Record2 := &Record{
-		Data: &Record_V1Alpha2{
-			V1Alpha2: &oasfv1alpha2.Record{
+		Data: &Record_V3{
+			V3: &objectsv3.Record{
 				Name:          "test-agent-v2",
 				SchemaVersion: "v1alpha2",
 				Description:   "A test agent in v1alpha2 record",
 				Version:       "1.0.0",
-				Extensions: []*oasfv1alpha2.Extension{
+				Extensions: []*objectsv3.Extension{
 					{
 						Name:    "test-extension",
 						Version: "1.0.0",
@@ -161,8 +161,8 @@ func TestRecord_GetCid_V1Alpha2_Consistency(t *testing.T) {
 func TestRecord_GetCid_CrossVersion_Difference(t *testing.T) {
 	// Create similar but different version records - they should have different CIDs
 	v1alpha1Record := &Record{
-		Data: &Record_V1Alpha1{
-			V1Alpha1: &oasfv1alpha1.Agent{
+		Data: &Record_V1{
+			V1: &objectsv1.Agent{
 				Name:          "test-agent",
 				SchemaVersion: "v1alpha1",
 				Description:   "A test agent",
@@ -171,8 +171,8 @@ func TestRecord_GetCid_CrossVersion_Difference(t *testing.T) {
 	}
 
 	v1alpha2Record := &Record{
-		Data: &Record_V1Alpha2{
-			V1Alpha2: &oasfv1alpha2.Record{
+		Data: &Record_V3{
+			V3: &objectsv3.Record{
 				Name:          "test-agent",
 				SchemaVersion: "v1alpha2",
 				Description:   "A test agent",
@@ -189,8 +189,8 @@ func TestRecord_GetCid_CrossVersion_Difference(t *testing.T) {
 
 func TestRecord_MustGetCid(t *testing.T) {
 	record := &Record{
-		Data: &Record_V1Alpha1{
-			V1Alpha1: &oasfv1alpha1.Agent{
+		Data: &Record_V1{
+			V1: &objectsv1.Agent{
 				Name:          "test-agent",
 				SchemaVersion: "v1alpha1",
 				Description:   "A test agent",
@@ -206,8 +206,8 @@ func TestRecord_MustGetCid(t *testing.T) {
 
 	// Test with v1alpha2 record
 	v1alpha2Record := &Record{
-		Data: &Record_V1Alpha2{
-			V1Alpha2: &oasfv1alpha2.Record{
+		Data: &Record_V3{
+			V3: &objectsv3.Record{
 				Name:          "test-agent-v2",
 				SchemaVersion: "v1alpha2",
 				Description:   "A test agent in v1alpha2 record",

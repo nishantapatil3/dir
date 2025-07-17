@@ -8,8 +8,8 @@ import (
 	"time"
 
 	corev1 "github.com/agntcy/dir/api/core/v1"
-	oasfv1alpha1 "github.com/agntcy/dir/api/oasf/v1alpha1"
-	oasfv1alpha2 "github.com/agntcy/dir/api/oasf/v1alpha2"
+	objectsv1 "github.com/agntcy/dir/api/objects/v1"
+	objectsv3 "github.com/agntcy/dir/api/objects/v3"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -81,12 +81,12 @@ func TestExtractManifestAnnotations(t *testing.T) {
 		{
 			name: "V1Alpha1 basic record",
 			record: &corev1.Record{
-				Data: &corev1.Record_V1Alpha1{
-					V1Alpha1: &oasfv1alpha1.Agent{
+				Data: &corev1.Record_V1{
+					V1: &objectsv1.Agent{
 						Name:          "test-agent",
 						Version:       "1.0.0",
 						Description:   "Test agent description",
-						SchemaVersion: "v1alpha1",
+						SchemaVersion: "v1",
 						CreatedAt:     "2023-01-01T00:00:00Z",
 						Authors:       []string{"author1", "author2"},
 					},
@@ -94,11 +94,11 @@ func TestExtractManifestAnnotations(t *testing.T) {
 			},
 			contains: map[string]string{
 				manifestDirObjectTypeKey: "record",
-				ManifestKeyOASFVersion:   "v1alpha1",
+				ManifestKeyOASFVersion:   "v1",
 				ManifestKeyName:          "test-agent",
 				ManifestKeyVersion:       "1.0.0",
 				ManifestKeyDescription:   "Test agent description",
-				ManifestKeySchemaVersion: "v1alpha1",
+				ManifestKeySchemaVersion: "v1",
 				ManifestKeyCreatedAt:     "2023-01-01T00:00:00Z",
 				ManifestKeyAuthors:       "author1,author2",
 				ManifestKeySigned:        "false",
@@ -107,19 +107,19 @@ func TestExtractManifestAnnotations(t *testing.T) {
 		{
 			name: "V1Alpha1 with skills and extensions",
 			record: &corev1.Record{
-				Data: &corev1.Record_V1Alpha1{
-					V1Alpha1: &oasfv1alpha1.Agent{
+				Data: &corev1.Record_V1{
+					V1: &objectsv1.Agent{
 						Name:    "skill-agent",
 						Version: "2.0.0",
-						Skills: []*oasfv1alpha1.Skill{
+						Skills: []*objectsv1.Skill{
 							{CategoryName: stringPtr("nlp"), ClassName: stringPtr("processing")},
 							{CategoryName: stringPtr("ml"), ClassName: stringPtr("inference")},
 						},
-						Locators: []*oasfv1alpha1.Locator{
+						Locators: []*objectsv1.Locator{
 							{Type: "docker"},
 							{Type: "helm"},
 						},
-						Extensions: []*oasfv1alpha1.Extension{
+						Extensions: []*objectsv1.Extension{
 							{Name: "security"},
 							{Name: "monitoring"},
 						},
@@ -143,12 +143,12 @@ func TestExtractManifestAnnotations(t *testing.T) {
 		{
 			name: "V1Alpha2 basic record",
 			record: &corev1.Record{
-				Data: &corev1.Record_V1Alpha2{
-					V1Alpha2: &oasfv1alpha2.Record{
+				Data: &corev1.Record_V3{
+					V3: &objectsv3.Record{
 						Name:        "test-record-v2",
 						Version:     "2.0.0",
 						Description: "Test record v2 description",
-						Skills: []*oasfv1alpha2.Skill{
+						Skills: []*objectsv3.Skill{
 							{Name: "nlp-skill"},
 						},
 						PreviousRecordCid: stringPtr("QmPreviousCID123"),
@@ -156,7 +156,7 @@ func TestExtractManifestAnnotations(t *testing.T) {
 				},
 			},
 			contains: map[string]string{
-				ManifestKeyOASFVersion: "v1alpha2",
+				ManifestKeyOASFVersion: "v3",
 				ManifestKeyName:        "test-record-v2",
 				ManifestKeyVersion:     "2.0.0",
 				ManifestKeyDescription: "Test record v2 description",
@@ -168,11 +168,11 @@ func TestExtractManifestAnnotations(t *testing.T) {
 		{
 			name: "Record with signature",
 			record: &corev1.Record{
-				Data: &corev1.Record_V1Alpha1{
-					V1Alpha1: &oasfv1alpha1.Agent{
+				Data: &corev1.Record_V1{
+					V1: &objectsv1.Agent{
 						Name:    "signed-agent",
 						Version: "1.0.0",
-						Signature: &oasfv1alpha1.Signature{
+						Signature: &objectsv1.Signature{
 							Algorithm: "ed25519",
 							SignedAt:  "2023-01-01T12:00:00Z",
 							Signature: "signature-bytes",
@@ -213,8 +213,8 @@ func TestCreateDescriptorAnnotations(t *testing.T) {
 		{
 			name: "V1Alpha1 record",
 			record: &corev1.Record{
-				Data: &corev1.Record_V1Alpha1{
-					V1Alpha1: &oasfv1alpha1.Agent{
+				Data: &corev1.Record_V1{
+					V1: &objectsv1.Agent{
 						Name: "test-agent",
 					},
 				},
@@ -223,7 +223,7 @@ func TestCreateDescriptorAnnotations(t *testing.T) {
 				DescriptorKeyBlobType:    "oasf-record",
 				DescriptorKeyEncoding:    "json",
 				DescriptorKeyCompression: "none",
-				DescriptorKeySchema:      "oasf.v1alpha1.Agent",
+				DescriptorKeySchema:      "oasf.v1.Agent",
 				// DescriptorKeyContentCid is verified separately using record.GetCid()
 				DescriptorKeySigned:       "false",
 				DescriptorKeyStoreVersion: "v1",
@@ -232,8 +232,8 @@ func TestCreateDescriptorAnnotations(t *testing.T) {
 		{
 			name: "V1Alpha2 record",
 			record: &corev1.Record{
-				Data: &corev1.Record_V1Alpha2{
-					V1Alpha2: &oasfv1alpha2.Record{
+				Data: &corev1.Record_V3{
+					V3: &objectsv3.Record{
 						Name: "test-record-v2",
 					},
 				},
@@ -241,17 +241,17 @@ func TestCreateDescriptorAnnotations(t *testing.T) {
 			contains: map[string]string{
 				DescriptorKeyBlobType: "oasf-record",
 				DescriptorKeyEncoding: "json",
-				DescriptorKeySchema:   "oasf.v1alpha2.Record",
+				DescriptorKeySchema:   "oasf.v3.Record",
 				DescriptorKeySigned:   "false",
 			},
 		},
 		{
 			name: "Record with signature",
 			record: &corev1.Record{
-				Data: &corev1.Record_V1Alpha1{
-					V1Alpha1: &oasfv1alpha1.Agent{
+				Data: &corev1.Record_V1{
+					V1: &objectsv1.Agent{
 						Name: "signed-agent",
-						Signature: &oasfv1alpha1.Signature{
+						Signature: &objectsv1.Signature{
 							Signature: "signature-data",
 						},
 					},
@@ -446,8 +446,8 @@ func TestParseManifestAnnotations(t *testing.T) {
 func TestExtractManifestAnnotations_EdgeCases(t *testing.T) {
 	t.Run("Record with empty data", func(t *testing.T) {
 		record := &corev1.Record{
-			Data: &corev1.Record_V1Alpha1{
-				V1Alpha1: &oasfv1alpha1.Agent{},
+			Data: &corev1.Record_V1{
+				V1: &objectsv1.Agent{},
 			},
 		}
 
@@ -455,7 +455,7 @@ func TestExtractManifestAnnotations_EdgeCases(t *testing.T) {
 
 		// Should still have basic annotations
 		assert.Equal(t, "record", result[manifestDirObjectTypeKey])
-		assert.Equal(t, "v1alpha1", result[ManifestKeyOASFVersion])
+		assert.Equal(t, "v1", result[ManifestKeyOASFVersion])
 		assert.Equal(t, "false", result[ManifestKeySigned])
 	})
 
@@ -473,15 +473,15 @@ func TestExtractManifestAnnotations_EdgeCases(t *testing.T) {
 func TestRoundTripConversion(t *testing.T) {
 	// Test that we can extract manifest annotations and parse them back correctly
 	originalRecord := &corev1.Record{
-		Data: &corev1.Record_V1Alpha1{
-			V1Alpha1: &oasfv1alpha1.Agent{
+		Data: &corev1.Record_V1{
+			V1: &objectsv1.Agent{
 				Name:          "roundtrip-agent",
 				Version:       "1.0.0",
 				Description:   "Test roundtrip conversion",
-				SchemaVersion: "v1alpha1",
+				SchemaVersion: "v1",
 				CreatedAt:     "2023-01-01T00:00:00Z",
 				Authors:       []string{"author1", "author2"},
-				Skills: []*oasfv1alpha1.Skill{
+				Skills: []*objectsv1.Skill{
 					{CategoryName: stringPtr("nlp"), ClassName: stringPtr("processing")},
 				},
 				Annotations: map[string]string{
@@ -498,12 +498,12 @@ func TestRoundTripConversion(t *testing.T) {
 	recordMeta := parseManifestAnnotations(manifestAnnotations)
 
 	// Verify round-trip conversion
-	assert.Equal(t, "v1alpha1", recordMeta.SchemaVersion)
+	assert.Equal(t, "v1", recordMeta.SchemaVersion)
 	assert.Equal(t, "2023-01-01T00:00:00Z", recordMeta.CreatedAt)
 	assert.Equal(t, "roundtrip-agent", recordMeta.Annotations[MetadataKeyName])
 	assert.Equal(t, "1.0.0", recordMeta.Annotations[MetadataKeyVersion])
 	assert.Equal(t, "Test roundtrip conversion", recordMeta.Annotations[MetadataKeyDescription])
-	assert.Equal(t, "v1alpha1", recordMeta.Annotations[MetadataKeyOASFVersion])
+	assert.Equal(t, "v1", recordMeta.Annotations[MetadataKeyOASFVersion])
 	assert.Equal(t, "author1,author2", recordMeta.Annotations[MetadataKeyAuthors])
 	assert.Equal(t, "2", recordMeta.Annotations[MetadataKeyAuthorsCount])
 	assert.Equal(t, "processing", recordMeta.Annotations[MetadataKeySkills])

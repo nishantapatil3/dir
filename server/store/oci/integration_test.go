@@ -13,7 +13,7 @@ import (
 	"time"
 
 	corev1 "github.com/agntcy/dir/api/core/v1"
-	oasfv1alpha1 "github.com/agntcy/dir/api/oasf/v1alpha1"
+	objectsv1 "github.com/agntcy/dir/api/objects/v1"
 	ociconfig "github.com/agntcy/dir/server/store/oci/config"
 	"github.com/agntcy/dir/server/types"
 	"github.com/stretchr/testify/assert"
@@ -39,23 +39,23 @@ var integrationConfig = ociconfig.Config{
 // createTestRecord creates a comprehensive test record for integration testing
 func createTestRecord() *corev1.Record {
 	return &corev1.Record{
-		Data: &corev1.Record_V1Alpha1{
-			V1Alpha1: &oasfv1alpha1.Agent{
+		Data: &corev1.Record_V1{
+			V1: &objectsv1.Agent{
 				Name:          "integration-test-agent",
 				Version:       "v1.0.0",
 				Description:   "Integration test agent for OCI storage",
-				SchemaVersion: "v1alpha1",
+				SchemaVersion: "v1",
 				CreatedAt:     "2023-01-01T00:00:00Z",
 				Authors:       []string{"integration-test@example.com"},
-				Skills: []*oasfv1alpha1.Skill{
+				Skills: []*objectsv1.Skill{
 					{CategoryName: stringPtr("nlp"), ClassName: stringPtr("processing")},
 					{CategoryName: stringPtr("ml"), ClassName: stringPtr("inference")},
 				},
-				Locators: []*oasfv1alpha1.Locator{
+				Locators: []*objectsv1.Locator{
 					{Type: "docker"},
 					{Type: "helm"},
 				},
-				Extensions: []*oasfv1alpha1.Extension{
+				Extensions: []*objectsv1.Extension{
 					{Name: "security"},
 					{Name: "monitoring"},
 				},
@@ -236,8 +236,8 @@ func TestIntegrationOCIStoreWorkflow(t *testing.T) {
 			"org.agntcy.dir/name":            "integration-test-agent",
 			"org.agntcy.dir/version":         "v1.0.0",
 			"org.agntcy.dir/description":     "Integration test agent for OCI storage",
-			"org.agntcy.dir/oasf-version":    "v1alpha1",
-			"org.agntcy.dir/schema-version":  "v1alpha1",
+			"org.agntcy.dir/oasf-version":    "v1",
+			"org.agntcy.dir/schema-version":  "v1",
 			"org.agntcy.dir/created-at":      "2023-01-01T00:00:00Z",
 			"org.agntcy.dir/authors":         "integration-test@example.com",
 			"org.agntcy.dir/skills":          "processing,inference",
@@ -287,7 +287,7 @@ func TestIntegrationOCIStoreWorkflow(t *testing.T) {
 		expectedDescriptorAnnotations := map[string]string{
 			"org.agntcy.dir/encoding":      "json",
 			"org.agntcy.dir/blob-type":     "oasf-record",
-			"org.agntcy.dir/schema":        "oasf.v1alpha1.Agent",
+			"org.agntcy.dir/schema":        "oasf.v1.Agent",
 			"org.agntcy.dir/compression":   "none",
 			"org.agntcy.dir/signed":        "false",
 			"org.agntcy.dir/store-version": "v1",
@@ -327,7 +327,7 @@ func TestIntegrationOCIStoreWorkflow(t *testing.T) {
 		assert.Equal(t, "integration-test-agent", meta.Annotations["name"])
 		assert.Equal(t, "v1.0.0", meta.Annotations["version"])
 		assert.Equal(t, "processing,inference", meta.Annotations["skills"])
-		assert.Equal(t, "v1alpha1", meta.SchemaVersion)
+		assert.Equal(t, "v1", meta.SchemaVersion)
 		assert.Equal(t, "2023-01-01T00:00:00Z", meta.CreatedAt)
 	})
 
@@ -339,8 +339,8 @@ func TestIntegrationOCIStoreWorkflow(t *testing.T) {
 		require.NotNil(t, pulledRecord, "Pull should return record")
 
 		// Verify pulled record matches original
-		originalAgent := record.GetV1Alpha1()
-		pulledAgent := pulledRecord.GetV1Alpha1()
+		originalAgent := record.GetV1()
+		pulledAgent := pulledRecord.GetV1()
 
 		assert.Equal(t, originalAgent.Name, pulledAgent.Name)
 		assert.Equal(t, originalAgent.Version, pulledAgent.Version)
@@ -391,8 +391,8 @@ func TestIntegrationOCIStoreWorkflow(t *testing.T) {
 func TestIntegrationTagStrategy(t *testing.T) {
 	// Create record with minimal data to test different tag strategies
 	minimalRecord := &corev1.Record{
-		Data: &corev1.Record_V1Alpha1{
-			V1Alpha1: &oasfv1alpha1.Agent{
+		Data: &corev1.Record_V1{
+			V1: &objectsv1.Agent{
 				Name:    "minimal-agent",
 				Version: "v1.0.0",
 			},
