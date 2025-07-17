@@ -30,3 +30,6 @@ agent_model.json
 .licensei.cache
 
 tmp/
+
+# AI
+.cursor/
