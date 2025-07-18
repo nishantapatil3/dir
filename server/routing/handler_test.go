@@ -5,40 +5,29 @@
 package routing
 
 import (
+	"bytes"
+	"encoding/json"
 	"testing"
 	"time"
 
-	corev1 "github.com/agntcy/dir/api/core/v1"
-	objectsv1 "github.com/agntcy/dir/api/objects/v1"
-	"github.com/ipfs/go-cid"
+	coretypes "github.com/agntcy/dir/api/core/v1alpha1"
 	"github.com/stretchr/testify/assert"
 )
-
-// Helper function to create a v1 Record from v1alpha1 Agent
-func createRecordFromAgentForHandler(agent *objectsv1.Agent) *corev1.Record {
-	return &corev1.Record{
-		Data: &corev1.Record_V1{
-			V1: agent,
-		},
-	}
-}
 
 // Testing 2 nodes, A -> B
 // stores and announces an agent.
 // A discovers it retrieves the key metadata from B.
 func TestHandler(t *testing.T) {
 	// Test data
-	testAgent := &objectsv1.Agent{
-		Skills: []*objectsv1.Skill{
+	testAgent := &coretypes.Agent{
+		Skills: []*coretypes.Skill{
 			{CategoryName: toPtr("category1"), ClassName: toPtr("class1")},
 		},
-		Locators: []*objectsv1.Locator{
+		Locators: []*coretypes.Locator{
 			{Type: "type1", Url: "url1"},
 		},
 	}
-
-	// Create record from agent
-	testRecord := createRecordFromAgentForHandler(testAgent)
+	testRef := getObjectRef(testAgent)
 
 	// create demo network
 	firstNode := newTestServer(t, t.Context(), nil)
@@ -49,13 +38,14 @@ func TestHandler(t *testing.T) {
 	<-firstNode.remote.server.DHT().RefreshRoutingTable()
 	<-secondNode.remote.server.DHT().RefreshRoutingTable()
 
-	// Push the record to the store (this will generate the CID)
-	recordRef, err := secondNode.remote.storeAPI.Push(t.Context(), testRecord)
+	// publish the key on second node and wait on the first
+	digestCID, err := testRef.GetCID()
 	assert.NoError(t, err)
-	assert.NotNil(t, recordRef)
 
-	// Parse the CID string to get the CID object for DHT operations
-	digestCID, err := cid.Parse(recordRef.GetCid())
+	// push the data
+	data, err := json.Marshal(testAgent)
+	assert.NoError(t, err)
+	_, err = secondNode.remote.storeAPI.Push(t.Context(), testRef, bytes.NewReader(data))
 	assert.NoError(t, err)
 
 	// announce the key

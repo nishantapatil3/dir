@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	corev1 "github.com/agntcy/dir/api/core/v1"
+	coretypes "github.com/agntcy/dir/api/core/v1alpha1"
 	"github.com/agntcy/dir/utils/logging"
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p-kad-dht/providers"
@@ -29,7 +29,7 @@ type handler struct {
 }
 
 type handlerSync struct {
-	Ref  *corev1.RecordRef
+	Ref  *coretypes.ObjectRef
 	Peer peer.AddrInfo
 }
 
@@ -61,7 +61,7 @@ func (h *handler) GetProviders(ctx context.Context, key []byte) ([]peer.AddrInfo
 func (h *handler) handleAnnounce(_ context.Context, key []byte, prov peer.AddrInfo) error {
 	handlerLogger.Debug("Received announcement event", "key", key, "provider", prov)
 
-	// validate if the provider is not the same as the host
+	// validete if the provider is not the same as the host
 	if peer.ID(h.hostID) == prov.ID {
 		handlerLogger.Info("Ignoring announcement event from self", "provider", prov)
 
@@ -77,35 +77,21 @@ func (h *handler) handleAnnounce(_ context.Context, key []byte, prov peer.AddrIn
 		return nil
 	}
 
-	// create CID from multihash and convert to string for RecordRef
-	cidObj := cid.NewCidV1(cid.Raw, cast)
-	cidString := cidObj.String()
+	// create CID from multihash
+	// NOTE: we can only get the digest here, but not the type
+	// NOTE: we have to reach out to the provider anyway to update data
+	ref := &coretypes.ObjectRef{}
 
-	// Create RecordRef with the CID string
-	ref := &corev1.RecordRef{
-		Cid: cidString,
-	}
-
-	// Decode CID to extract digest for validation (following OCI store pattern)
-	c, err := cid.Decode(cidString)
+	err = ref.FromCID(cid.NewCidV1(cid.Raw, cast))
 	if err != nil {
-		handlerLogger.Error("Failed to decode CID", "error", err)
+		handlerLogger.Error("Failed to create object reference from CID", "error", err)
+
 		return nil
 	}
-
-	cidHash := c.Hash()
-	decoded, err := mh.Decode(cidHash)
-	if err != nil {
-		handlerLogger.Error("Failed to decode multihash", "error", err)
-		return nil
-	}
-
-	// Create digest string for validation
-	digestStr := fmt.Sprintf("sha256:%x", decoded.Digest)
 
 	// validate if valid sha256 digest
-	if !regexp.MustCompile(`^[a-fA-F0-9]{64}$`).MatchString(strings.TrimPrefix(digestStr, "sha256:")) {
-		handlerLogger.Info("Ignoring announcement event for invalid object", "digest", digestStr)
+	if !regexp.MustCompile(`^[a-fA-F0-9]{64}$`).MatchString(strings.TrimPrefix(ref.GetDigest(), "sha256:")) {
+		handlerLogger.Info("Ignoring announcement event for invalid object", "digest", ref.GetDigest())
 
 		// this is not an object of interest
 		return nil

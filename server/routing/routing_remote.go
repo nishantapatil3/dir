@@ -5,20 +5,21 @@ package routing
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
-	routingtypes "github.com/agntcy/dir/api/routing/v1alpha2"
+	coretypes "github.com/agntcy/dir/api/core/v1alpha1"
+	routingtypes "github.com/agntcy/dir/api/routing/v1alpha1"
 	"github.com/agntcy/dir/server/routing/internal/p2p"
 	"github.com/agntcy/dir/server/routing/rpc"
 	"github.com/agntcy/dir/server/types"
-	"github.com/agntcy/dir/server/types/adapters"
 	"github.com/agntcy/dir/utils/logging"
-	"github.com/ipfs/go-cid"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p-kad-dht/providers"
 	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -108,95 +109,154 @@ func newRemote(ctx context.Context,
 	return routeAPI, nil
 }
 
-func (r *routeRemote) Publish(ctx context.Context, record types.Record) error {
-	remoteLogger.Debug("Called remote routing's Publish method", "record", record)
+func (r *routeRemote) Publish(ctx context.Context, object *coretypes.Object, _ bool) error {
+	remoteLogger.Debug("Called remote routing's Publish method", "object", object)
 
-	cidString := record.GetCid()
-	if cidString == "" {
-		return status.Errorf(codes.InvalidArgument, "invalid record: missing CID")
-	}
+	ref := object.GetRef()
 
-	recordData := record.GetRecordData()
-	if recordData == nil {
-		return status.Errorf(codes.InvalidArgument, "invalid record: missing data")
-	}
-
-	// Parse CID string to cid.Cid for DHT operations
-	digestCID, err := cid.Parse(cidString)
+	// get object CID
+	cid, err := ref.GetCID()
 	if err != nil {
-		return status.Errorf(codes.InvalidArgument, "invalid CID format: %v", err)
+		return status.Errorf(codes.InvalidArgument, "failed to get object CID: %v", err)
 	}
 
-	// Announce to the DHT network that we are providing this content
-	if r.server != nil && r.server.DHT() != nil {
-		err = r.server.DHT().Provide(ctx, digestCID, true)
-		if err != nil {
-			return status.Errorf(codes.Internal, "failed to announce to DHT: %v", err)
-		}
-
-		remoteLogger.Info("Successfully announced record to DHT", "cid", cidString)
-	} else {
-		return status.Errorf(codes.Internal, "DHT server not available")
+	// announce to DHT
+	err = r.server.DHT().Provide(ctx, cid, true)
+	if err != nil {
+		return status.Errorf(codes.Internal, "failed to announce object %v, it will be retried in the background. Reason: %v", ref.GetDigest(), err)
 	}
+
+	remoteLogger.Debug("Successfully announced object to the network", "ref", ref)
 
 	return nil
 }
 
-func (r *routeRemote) List(ctx context.Context, req *routingtypes.ListRequest) (<-chan *routingtypes.ListResponse, error) {
+//nolint:mnd
+func (r *routeRemote) List(ctx context.Context, req *routingtypes.ListRequest) (<-chan *routingtypes.ListResponse_Item, error) {
 	remoteLogger.Debug("Called remote routing's List method", "req", req)
 
-	// For remote routing, List should search the DHT network for providers
-	outCh := make(chan *routingtypes.ListResponse)
+	// list data from remote for a given peer.
+	// this returns all the records that fully match our query.
+	if req.GetPeer() != nil {
+		remoteLogger.Info("Listing data for peer", "req", req)
 
-	// TODO: This needs a more sophisticated implementation to search DHT
-	// For now, we'll return an empty channel since the main List functionality
-	// is handled by local routing in v1alpha2 API
-	go func() {
-		defer close(outCh)
+		resp, err := r.service.List(ctx, []peer.ID{peer.ID(req.GetPeer().GetId())}, &routingtypes.ListRequest{
+			Labels: req.GetLabels(),
+		})
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to list data on remote: %v", err)
+		}
 
-		// In v1alpha2, List is typically local-only
-		// Network search functionality would be in a separate Search method
-		remoteLogger.Debug("Remote List not fully implemented - v1alpha2 uses local List + separate Search")
-	}()
-
-	return outCh, nil
-}
-
-func (r *routeRemote) Unpublish(ctx context.Context, record types.Record) error {
-	remoteLogger.Debug("Called remote routing's Unpublish method", "record", record)
-
-	cidString := record.GetCid()
-	if cidString == "" {
-		return status.Errorf(codes.InvalidArgument, "invalid record: missing CID")
+		return resp, nil
 	}
 
-	recordData := record.GetRecordData()
-	if recordData == nil {
-		return status.Errorf(codes.InvalidArgument, "invalid record: missing data")
+	// get specific agent from all remote peers hosting it
+	// this returns all the peers that are holding requested agent
+	if record := req.GetRecord(); record != nil {
+		remoteLogger.Info("Listing data for record", "record", record)
+
+		// get object CID
+		cid, err := record.GetCID()
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "failed to get object CID: %v", err)
+		}
+
+		// find using the DHT
+		provs, err := r.server.DHT().FindProviders(ctx, cid)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to find object providers: %v", err)
+		}
+
+		if len(provs) == 0 {
+			return nil, status.Errorf(codes.NotFound, "no providers found for object: %s", record.GetDigest())
+		}
+
+		// stream results back
+		resCh := make(chan *routingtypes.ListResponse_Item, 100)
+		go func(provs []peer.AddrInfo, ref *coretypes.ObjectRef) {
+			defer close(resCh)
+
+			for _, prov := range provs {
+				// pull agent from peer
+				// TODO: this is not optional because we pull everything
+				// just for the sake of showing the result
+				object, err := r.service.Pull(ctx, prov.ID, ref)
+				if err != nil {
+					remoteLogger.Error("failed to pull agent", "error", err)
+
+					continue
+				}
+
+				// get agent
+				agent := object.GetAgent()
+				labels := getLabels(agent)
+
+				// peer addrs to string
+				var addrs []string
+				for _, addr := range prov.Addrs {
+					addrs = append(addrs, addr.String())
+				}
+
+				remoteLogger.Info("Found an announced agent", "ref", ref, "peer", prov.ID, "labels", strings.Join(labels, ", "), "addrs", strings.Join(addrs, ", "))
+
+				// send back to caller
+				resCh <- &routingtypes.ListResponse_Item{
+					Record: object.GetRef(),
+					Labels: labels,
+					Peer: &routingtypes.Peer{
+						Id:    prov.ID.String(),
+						Addrs: addrs,
+					},
+				}
+			}
+		}(provs, record)
+
+		return resCh, nil
 	}
 
-	// Validate CID format (even though we don't need to use it for unproviding)
-	_, err := cid.Parse(cidString)
-	if err != nil {
-		return status.Errorf(codes.InvalidArgument, "invalid CID format: %v", err)
+	// run a query across peers, keep forwarding until we exhaust the hops
+	// TODO: this is a naive implementation, reconsider better selection of peers and scheduling.
+	remoteLogger.Info("Listing data for all peers", "req", req)
+
+	// resolve hops
+	if req.GetMaxHops() > 20 {
+		return nil, errors.New("max hops exceeded")
 	}
 
-	// In libp2p DHT, there's no direct "unprovide" method
-	// Provider records naturally expire, but we can stop announcing
-	if r.server != nil && r.server.DHT() != nil {
-		// We can't explicitly unprovide in libp2p DHT, but we can:
-		// 1. Stop announcing this CID (by not calling Provide again)
-		// 2. The record will naturally expire from the DHT
-
-		remoteLogger.Info("Stopped providing record to DHT (will expire naturally)", "cid", cidString)
-
-		// Note: In production, you might want to track what we're providing
-		// and implement a cleanup mechanism, but for now this is sufficient
-	} else {
-		return status.Errorf(codes.Internal, "DHT server not available")
+	//nolint:protogetter
+	if req.MaxHops != nil && *req.MaxHops > 0 {
+		*req.MaxHops--
 	}
 
-	return nil
+	// run in the background
+	resCh := make(chan *routingtypes.ListResponse_Item, 100)
+	go func(ctx context.Context, req *routingtypes.ListRequest) {
+		defer close(resCh)
+
+		// get data from peers (list what each of our connected peers has)
+		resp, err := r.service.List(ctx, r.server.Host().Peerstore().Peers(), &routingtypes.ListRequest{
+			Peer:    req.GetPeer(),
+			Labels:  req.GetLabels(),
+			Record:  req.GetRecord(),
+			MaxHops: req.MaxHops, //nolint:protogetter
+			Network: toPtr(false),
+		})
+		if err != nil {
+			remoteLogger.Error("failed to list from peer over the network", "error", err)
+
+			return
+		}
+
+		// TODO: crawl by continuing the walk based on hop count
+		// IMPORTANT: do we really want to use other nodes as hops or our peers are enough?
+
+		// pass the results back
+		for item := range resp {
+			resCh <- item
+		}
+	}(ctx, req)
+
+	return resCh, nil
 }
 
 func (r *routeRemote) handleNotify(ctx context.Context) {
@@ -233,24 +293,22 @@ procLoop:
 			}
 
 			// fetch model directly from peer and drop it
-			record, err := r.service.Pull(ctx, notif.Peer.ID, notif.Ref)
+			object, err := r.service.Pull(ctx, notif.Peer.ID, notif.Ref)
 			if err != nil {
-				remoteLogger.Error("failed to pull record", "error", err)
+				remoteLogger.Error("failed to pull agent", "error", err)
 
 				continue procLoop
 			}
+			agent := object.GetAgent()
 
-			// Create record adapter to work with the types.Record interface
-			recordAdapter := adapters.NewRecordAdapter(record)
-
-			// extract labels using the adapter system
-			labels := getLabels(recordAdapter)
+			// extract labels
+			labels := getLabels(agent)
 
 			// TODO: we can perform validation and data synchronization here.
 			// Depending on the server configuration, we can decide if we want to
 			// pull this model into our own cache, rebroadcast it, or ignore it.
 
-			remoteLogger.Info("Successfully processed record", "meta", meta, "labels", strings.Join(labels, ", "), "peer", notif.Peer.ID)
+			remoteLogger.Info("Successfully processed agent", "meta", meta, "labels", strings.Join(labels, ", "), "peer", notif.Peer.ID)
 		}
 	}
 }

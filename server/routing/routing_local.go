@@ -10,14 +10,13 @@ import (
 	"path"
 	"strings"
 
-	corev1 "github.com/agntcy/dir/api/core/v1"
-	routingtypes "github.com/agntcy/dir/api/routing/v1alpha2"
+	coretypes "github.com/agntcy/dir/api/core/v1alpha1"
+	routingtypes "github.com/agntcy/dir/api/routing/v1alpha1"
 	"github.com/agntcy/dir/server/types"
-	"github.com/agntcy/dir/server/types/adapters"
 	"github.com/agntcy/dir/utils/logging"
-	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/query"
+	ocidigest "github.com/opencontainers/go-digest"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -37,17 +36,17 @@ func newLocal(store types.StoreAPI, dstore types.Datastore) *routeLocal {
 	}
 }
 
-func (r *routeLocal) Publish(ctx context.Context, record types.Record) error {
-	localLogger.Debug("Called local routing's Publish method", "record", record)
+func (r *routeLocal) Publish(ctx context.Context, object *coretypes.Object, _ bool) error {
+	localLogger.Debug("Called local routing's Publish method", "object", object)
 
-	cid := record.GetCid()
-	if cid == "" {
-		return status.Errorf(codes.InvalidArgument, "invalid record: missing CID")
+	ref := object.GetRef()
+	if ref == nil {
+		return status.Errorf(codes.InvalidArgument, "invalid object reference: %v", ref)
 	}
 
-	recordData := record.GetRecordData()
-	if recordData == nil {
-		return status.Errorf(codes.InvalidArgument, "invalid record: missing data")
+	agent := object.GetAgent()
+	if agent == nil {
+		return status.Errorf(codes.InvalidArgument, "invalid agent object: %v", agent)
 	}
 
 	metrics, err := loadMetrics(ctx, r.dstore)
@@ -60,34 +59,34 @@ func (r *routeLocal) Publish(ctx context.Context, record types.Record) error {
 		return status.Errorf(codes.Internal, "failed to create batch: %v", err)
 	}
 
-	// the key where we will save the record
-	recordKey := datastore.NewKey("/agents/" + cid)
+	// the key where we will save the agent
+	agentKey := datastore.NewKey("/agents/" + ref.GetDigest())
 
-	// check if we have the record already
+	// check if we have the agent already
 	// this is useful to avoid updating metrics and running the same operation multiple times
-	recordExists, err := r.dstore.Has(ctx, recordKey)
+	agentExists, err := r.dstore.Has(ctx, agentKey)
 	if err != nil {
-		return status.Errorf(codes.Internal, "failed to check if record exists: %v", err)
+		return status.Errorf(codes.Internal, "failed to check if agent exists: %v", err)
 	}
 
-	if recordExists {
-		localLogger.Info("Skipping republish as record was already published", "cid", cid)
+	if agentExists {
+		localLogger.Info("Skipping republish as agent was already published", "ref", ref)
 
 		return nil
 	}
 
-	// store record for later lookup
-	if err := batch.Put(ctx, recordKey, nil); err != nil {
-		return status.Errorf(codes.Internal, "failed to put record key: %v", err)
+	// store agent for later lookup
+	if err := batch.Put(ctx, agentKey, nil); err != nil {
+		return status.Errorf(codes.Internal, "failed to put agent key: %v", err)
 	}
 
-	// keep track of all record labels
-	labels := getLabels(record)
+	// keep track of all agent skills
+	labels := getLabels(agent)
 	for _, label := range labels {
-		// Add key with cid
-		recordLabelKey := fmt.Sprintf("%s/%s", label, cid)
-		if err := batch.Put(ctx, datastore.NewKey(recordLabelKey), nil); err != nil {
-			return status.Errorf(codes.Internal, "failed to put label key: %v", err)
+		// Add key with digest
+		agentLabelKey := fmt.Sprintf("%s/%s", label, ref.GetDigest())
+		if err := batch.Put(ctx, datastore.NewKey(agentLabelKey), nil); err != nil {
+			return status.Errorf(codes.Internal, "failed to put skill key: %v", err)
 		}
 
 		metrics.increment(label)
@@ -104,17 +103,17 @@ func (r *routeLocal) Publish(ctx context.Context, record types.Record) error {
 		return status.Errorf(codes.Internal, "failed to update metrics: %v", err)
 	}
 
-	localLogger.Info("Successfully published record", "cid", cid)
+	localLogger.Info("Successfully published agent", "ref", ref)
 
 	return nil
 }
 
 //nolint:cyclop
-func (r *routeLocal) List(ctx context.Context, req *routingtypes.ListRequest) (<-chan *routingtypes.ListResponse, error) {
+func (r *routeLocal) List(ctx context.Context, req *routingtypes.ListRequest) (<-chan *routingtypes.ListResponse_Item, error) {
 	localLogger.Debug("Called local routing's List method", "req", req)
 
 	// dest to write the results on
-	outCh := make(chan *routingtypes.ListResponse)
+	outCh := make(chan *routingtypes.ListResponse_Item)
 
 	// load metrics for the client
 	metrics, err := loadMetrics(ctx, r.dstore)
@@ -122,48 +121,39 @@ func (r *routeLocal) List(ctx context.Context, req *routingtypes.ListRequest) (<
 		return nil, status.Errorf(codes.Internal, "failed to load metrics: %v", err)
 	}
 
-	// if we sent an empty request, return stats for the current peer
-	if req.GetQueries() == nil || len(req.GetQueries()) == 0 {
+	// if we sent an empty request, return us stats for the current peer
+	if req.GetRecord() == nil && len(req.GetLabels()) == 0 {
 		go func(labels []string) {
 			defer close(outCh)
 
-			// For empty requests, we could return peer stats, but v1alpha2 doesn't support this
-			// The v1alpha2 API is query-based, so we'll just close the channel
-			localLogger.Debug("Empty query request, returning no results")
+			outCh <- &routingtypes.ListResponse_Item{
+				Labels: labels,
+				Peer: &routingtypes.Peer{
+					Id: "HOST",
+				},
+				LabelCounts: metrics.counts(),
+			}
 		}(metrics.labels())
 
 		return outCh, nil
 	}
 
-	// Convert v1alpha2 queries to v1alpha1 style labels for existing datastore structure
-	var labels []string
-	for _, query := range req.GetQueries() {
-		switch query.GetType() {
-		case routingtypes.RecordQueryType_RECORD_QUERY_TYPE_SKILL:
-			labels = append(labels, "/skills/"+query.GetValue())
-		case routingtypes.RecordQueryType_RECORD_QUERY_TYPE_LOCATOR:
-			labels = append(labels, "/locators/"+query.GetValue())
-		default:
-			localLogger.Debug("Unsupported query type, skipping", "type", query.GetType())
-		}
-	}
-
 	// validate request
-	if len(labels) == 0 {
-		return nil, errors.New("no valid queries provided")
+	if len(req.GetLabels()) == 0 {
+		return nil, errors.New("no labels provided")
 	}
 
 	// get filters for not least common labels
 	var filters []query.Filter
 
-	leastCommonLabel := labels[0]
-	for _, label := range labels {
+	leastCommonLabel := req.GetLabels()[0]
+	for _, label := range req.GetLabels() {
 		if metrics.Data[label].Total < metrics.Data[leastCommonLabel].Total {
 			leastCommonLabel = label
 		}
 	}
 
-	for _, label := range labels {
+	for _, label := range req.GetLabels() {
 		if label != leastCommonLabel {
 			filters = append(filters, &labelFilter{
 				dstore: r.dstore,
@@ -186,46 +176,63 @@ func (r *routeLocal) List(ctx context.Context, req *routingtypes.ListRequest) (<
 	go func() {
 		defer close(outCh)
 
-		processedRecordCids := make(map[string]struct{})
+		processedAgentDigests := make(map[string]struct{})
 
 		for entry := range res.Next() {
-			// read record CID from datastore key
-			cid, err := getRecordCidFromKey(entry.Key)
+			// read agent digest from datastore key
+			digest, err := getAgentDigestFromKey(entry.Key)
 			if err != nil {
-				localLogger.Error("failed to get record CID", "error", err)
+				localLogger.Error("failed to get agent digest", "error", err)
 
 				return
 			}
 
-			if _, ok := processedRecordCids[cid]; ok {
+			if _, ok := processedAgentDigests[digest]; ok {
 				continue
 			}
 
-			processedRecordCids[cid] = struct{}{}
+			processedAgentDigests[digest] = struct{}{}
 
-			// create record reference using CID
-			recordRef := &corev1.RecordRef{
-				Cid: cid,
-			}
-
-			// get record from store
-			record, err := r.store.Pull(ctx, recordRef)
+			// lookup agent
+			ref, err := r.store.Lookup(ctx, &coretypes.ObjectRef{
+				Type:   coretypes.ObjectType_OBJECT_TYPE_AGENT.String(),
+				Digest: digest,
+			})
 			if err != nil {
-				localLogger.Error("failed to pull record", "error", err)
+				localLogger.Error("failed to lookup agent", "error", err)
 
 				continue
 			}
 
-			// create adapter to work with record
-			adapter := adapters.NewRecordAdapter(record)
+			// get agent from peer
+			object, err := r.store.Pull(ctx, ref)
+			if err != nil {
+				localLogger.Error("failed to pull agent", "error", err)
 
-			// get labels for verification (optional - could be skipped for performance)
-			recordLabels := getLabels(adapter)
-			localLogger.Debug("Found record with labels", "cid", cid, "labels", recordLabels)
+				continue
+			}
+
+			agent := &coretypes.Agent{}
+
+			_, err = agent.LoadFromReader(object)
+			if err != nil {
+				localLogger.Error("failed to load agent", "error", err)
+
+				continue
+			}
+
+			labels := getLabels(agent)
 
 			// forward results back
-			outCh <- &routingtypes.ListResponse{
-				RecordRef: recordRef,
+			outCh <- &routingtypes.ListResponse_Item{
+				Labels: labels,
+				Peer: &routingtypes.Peer{
+					Id: "HOST",
+				},
+				Record: &coretypes.ObjectRef{
+					Type:   coretypes.ObjectType_OBJECT_TYPE_AGENT.String(),
+					Digest: digest,
+				},
 			}
 		}
 	}()
@@ -233,17 +240,17 @@ func (r *routeLocal) List(ctx context.Context, req *routingtypes.ListRequest) (<
 	return outCh, nil
 }
 
-func (r *routeLocal) Unpublish(ctx context.Context, record types.Record) error {
-	localLogger.Debug("Called local routing's Unpublish method", "record", record)
+func (r *routeLocal) Unpublish(ctx context.Context, object *coretypes.Object) error {
+	localLogger.Debug("Called local routing's Unpublish method", "object", object)
 
-	cid := record.GetCid()
-	if cid == "" {
-		return status.Errorf(codes.InvalidArgument, "invalid record: missing CID")
+	ref := object.GetRef()
+	if ref == nil {
+		return status.Errorf(codes.InvalidArgument, "invalid object reference: %v", ref)
 	}
 
-	recordData := record.GetRecordData()
-	if recordData == nil {
-		return status.Errorf(codes.InvalidArgument, "invalid record: missing data")
+	agent := object.GetAgent()
+	if agent == nil {
+		return status.Errorf(codes.InvalidArgument, "invalid agent object: %v", agent)
 	}
 
 	// load metrics for the client
@@ -257,20 +264,20 @@ func (r *routeLocal) Unpublish(ctx context.Context, record types.Record) error {
 		return status.Errorf(codes.Internal, "failed to create batch: %v", err)
 	}
 
-	// get record key and remove record
-	recordKey := datastore.NewKey("/agents/" + cid)
-	if err := batch.Delete(ctx, recordKey); err != nil {
-		return status.Errorf(codes.Internal, "failed to delete record key: %v", err)
+	// get agent key and remove agent
+	agentKey := datastore.NewKey("/agents/" + ref.GetDigest())
+	if err := batch.Delete(ctx, agentKey); err != nil {
+		return status.Errorf(codes.Internal, "failed to delete agent key: %v", err)
 	}
 
-	// keep track of all record labels
-	labels := getLabels(record)
+	// keep track of all agent labels
+	labels := getLabels(agent)
 
 	for _, label := range labels {
-		// Delete key with cid
-		recordLabelKey := fmt.Sprintf("%s/%s", label, cid)
-		if err := batch.Delete(ctx, datastore.NewKey(recordLabelKey)); err != nil {
-			return status.Errorf(codes.Internal, "failed to delete label key: %v", err)
+		// Delete key with digest
+		agentLabelKey := fmt.Sprintf("%s/%s", label, ref.GetDigest())
+		if err := batch.Delete(ctx, datastore.NewKey(agentLabelKey)); err != nil {
+			return status.Errorf(codes.Internal, "failed to delete skill key: %v", err)
 		}
 
 		metrics.decrement(label)
@@ -287,22 +294,19 @@ func (r *routeLocal) Unpublish(ctx context.Context, record types.Record) error {
 		return status.Errorf(codes.Internal, "failed to update metrics: %v", err)
 	}
 
-	localLogger.Info("Successfully unpublished record", "cid", cid)
+	localLogger.Info("Successfully unpublished agent", "ref", ref)
 
 	return nil
 }
 
-func getRecordCidFromKey(k string) (string, error) {
-	// Extract CID from datastore key
-	cidString := path.Base(k)
-
-	// Validate CID format using go-cid library
-	_, err := cid.Parse(cidString)
-	if err != nil {
-		return "", fmt.Errorf("invalid CID format: %s", cidString)
+func getAgentDigestFromKey(k string) (string, error) {
+	// Check if digest is valid
+	digest := path.Base(k)
+	if _, err := ocidigest.Parse(digest); err != nil {
+		return "", fmt.Errorf("invalid digest: %s", digest)
 	}
 
-	return cidString, nil
+	return digest, nil
 }
 
 var _ query.Filter = (*labelFilter)(nil)
@@ -322,31 +326,21 @@ func (s *labelFilter) Filter(e query.Entry) bool {
 	return has
 }
 
-func getAgentSkills(record types.Record) []string {
-	recordData := record.GetRecordData()
-	if recordData == nil {
-		return nil
+func getAgentSkills(agent *coretypes.Agent) []string {
+	skills := make([]string, 0, len(agent.GetSkills()))
+	for _, skill := range agent.GetSkills() {
+		skills = append(skills, "/skills/"+skill.Key())
 	}
 
-	skills := recordData.GetSkills()
-	result := make([]string, 0, len(skills))
-	for _, skill := range skills {
-		result = append(result, "/skills/"+skill.GetName())
-	}
-
-	return result
+	return skills
 }
 
-func getAgentDomains(record types.Record) []string {
-	recordData := record.GetRecordData()
-	if recordData == nil {
-		return nil
-	}
-
+func getAgentDomains(agent *coretypes.Agent) []string {
 	prefix := "schema.oasf.agntcy.org/domains/"
+
 	var domains []string
 
-	for _, ext := range recordData.GetExtensions() {
+	for _, ext := range agent.GetExtensions() {
 		if strings.HasPrefix(ext.GetName(), prefix) {
 			domain := ext.GetName()[len(prefix):]
 			domains = append(domains, "/domains/"+domain)
@@ -356,16 +350,12 @@ func getAgentDomains(record types.Record) []string {
 	return domains
 }
 
-func getAgentFeatures(record types.Record) []string {
-	recordData := record.GetRecordData()
-	if recordData == nil {
-		return nil
-	}
-
+func getAgentFeatures(agent *coretypes.Agent) []string {
 	prefix := "schema.oasf.agntcy.org/features/"
+
 	var features []string
 
-	for _, ext := range recordData.GetExtensions() {
+	for _, ext := range agent.GetExtensions() {
 		if strings.HasPrefix(ext.GetName(), prefix) {
 			feature := ext.GetName()[len(prefix):]
 			features = append(features, "/features/"+feature)
@@ -375,19 +365,19 @@ func getAgentFeatures(record types.Record) []string {
 	return features
 }
 
-func getLabels(record types.Record) []string {
+func getLabels(agent *coretypes.Agent) []string {
 	var labels []string
 
 	// get agent skills
-	skills := getAgentSkills(record)
+	skills := getAgentSkills(agent)
 	labels = append(labels, skills...)
 
 	// get agent domains
-	domains := getAgentDomains(record)
+	domains := getAgentDomains(agent)
 	labels = append(labels, domains...)
 
 	// get agent features
-	features := getAgentFeatures(record)
+	features := getAgentFeatures(agent)
 	labels = append(labels, features...)
 
 	return labels
