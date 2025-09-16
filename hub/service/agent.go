@@ -10,35 +10,24 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/agntcy/dir/hub/api/v1alpha1"
+	v1alpha1 "github.com/agntcy/dir/hub/api/v1alpha1"
+	authUtils "github.com/agntcy/dir/hub/auth/utils"
 	hubClient "github.com/agntcy/dir/hub/client/hub"
 	"github.com/agntcy/dir/hub/sessionstore"
 	"github.com/google/uuid"
-	"google.golang.org/grpc/metadata"
 )
-
-// addAuthToContext adds the authorization header to the context if an access token is available.
-func addAuthToContext(ctx context.Context, session *sessionstore.HubSession) context.Context {
-	if session != nil && session.Tokens != nil && session.CurrentTenant != "" {
-		if t, ok := session.Tokens[session.CurrentTenant]; ok && t != nil && t.AccessToken != "" {
-			return metadata.NewOutgoingContext(ctx, metadata.Pairs("authorization", "Bearer "+t.AccessToken))
-		}
-	}
-
-	return ctx
-}
 
 // PullAgent pulls an agent from the hub and returns the pretty-printed JSON.
 // It uses the provided session for authentication.
 func PullAgent(
 	ctx context.Context,
 	hc hubClient.Client,
-	agentID *v1alpha1.AgentIdentifier,
+	agentID *v1alpha1.RecordIdentifier,
 	session *sessionstore.HubSession,
 ) ([]byte, error) {
-	ctx = addAuthToContext(ctx, session)
+	ctx = authUtils.AddAuthToContext(ctx, session)
 
-	model, err := hc.PullAgent(ctx, &v1alpha1.PullAgentRequest{
+	model, err := hc.PullAgent(ctx, &v1alpha1.PullRecordRequest{
 		Id: agentID,
 	})
 	if err != nil {
@@ -60,11 +49,11 @@ func PullAgent(
 
 // ParseAgentID parses a string into an AgentIdentifier.
 // Accepts either a digest (sha256:<hash>) or repository:version format.
-func ParseAgentID(agentID string) (*v1alpha1.AgentIdentifier, error) {
+func ParseAgentID(agentID string) (*v1alpha1.RecordIdentifier, error) {
 	// If the agentID starts with "sha256", treat it as a digest
 	if strings.HasPrefix(agentID, "sha256:") {
-		return &v1alpha1.AgentIdentifier{
-			Id: &v1alpha1.AgentIdentifier_Digest{
+		return &v1alpha1.RecordIdentifier{
+			Id: &v1alpha1.RecordIdentifier_Digest{
 				Digest: agentID,
 			},
 		}, nil
@@ -73,8 +62,8 @@ func ParseAgentID(agentID string) (*v1alpha1.AgentIdentifier, error) {
 	// Try to split by ":" for repository:version format
 	parts := strings.Split(agentID, ":")
 	if len(parts) == 2 && parts[0] != "" && parts[1] != "" {
-		return &v1alpha1.AgentIdentifier{
-			Id: &v1alpha1.AgentIdentifier_RepoVersionId{
+		return &v1alpha1.RecordIdentifier{
+			Id: &v1alpha1.RecordIdentifier_RepoVersionId{
 				RepoVersionId: &v1alpha1.RepoVersionId{
 					RepositoryName: parts[0],
 					Version:        parts[1],
@@ -90,10 +79,23 @@ func ParseAgentID(agentID string) (*v1alpha1.AgentIdentifier, error) {
 // Returns a RepositoryId if the string is a UUID, otherwise a RepositoryName.
 func ParseRepoTagID(id string) any {
 	if _, err := uuid.Parse(id); err == nil {
-		return &v1alpha1.PushAgentRequest_RepositoryId{RepositoryId: id}
+		return &v1alpha1.PushRecordRequest_RepositoryId{RepositoryId: id}
 	}
 
-	return &v1alpha1.PushAgentRequest_RepositoryName{RepositoryName: id}
+	return &v1alpha1.PushRecordRequest_RepositoryName{RepositoryName: id}
+}
+
+// ParseOrganizationName parses an organization name string from a Repository.
+// Returns an OrganizationName.
+func ParseOrganizationName(repository string) (string, error) {
+	const orgPartsNumber = 2
+
+	parts := strings.Split(repository, "/")
+	if len(parts) == orgPartsNumber {
+		return parts[0], nil
+	}
+
+	return "", fmt.Errorf("invalid repository format: %s. Expected format is '<org>/<repo>'", repository)
 }
 
 // PushAgent pushes an agent to the hub and returns the response.
@@ -102,12 +104,12 @@ func PushAgent(
 	ctx context.Context,
 	hc hubClient.Client,
 	agentBytes []byte,
-	repoID any,
+	repository any,
 	session *sessionstore.HubSession,
-) (*v1alpha1.PushAgentResponse, error) {
-	ctx = addAuthToContext(ctx, session)
+) (*v1alpha1.PushRecordResponse, error) {
+	ctx = authUtils.AddAuthToContext(ctx, session)
 
-	resp, err := hc.PushAgent(ctx, agentBytes, repoID)
+	resp, err := hc.PushAgent(ctx, agentBytes, repository)
 	if err != nil {
 		return nil, fmt.Errorf("failed to push agent: %w", err)
 	}

@@ -32,6 +32,7 @@ type AuthConfig struct {
 	IdpBackendAddress  string `json:"IAM_API"`
 	IdpFrontendAddress string `json:"IAM_UI"`
 	HubBackendAddress  string `json:"HUB_API"`
+	APIKeyClientID     string `json:"API_KEY_CLIENT_ID"`
 }
 
 // FetchAuthConfig retrieves and parses the AuthConfig from the given frontend URL.
@@ -81,12 +82,11 @@ func FetchAuthConfig(ctx context.Context, frontendURL string) (*AuthConfig, erro
 	backendAddr = strings.TrimPrefix(backendAddr, "http://")
 	backendAddr = strings.TrimPrefix(backendAddr, "https://")
 	backendAddr = strings.TrimSuffix(backendAddr, "/")
-	backendAddr = strings.TrimSuffix(backendAddr, "/v1alpha1")
-	backendAddr = fmt.Sprintf("%s:%d", backendAddr, DefaultHubBackendGRPCPort)
 	authConfig.HubBackendAddress = backendAddr
 
 	idpBackendAddr := authConfig.IdpBackendAddress
 	idpBackendAddr = strings.TrimSuffix(idpBackendAddr, "/")
+	// FIXME: is this trim still necessary?
 	idpBackendAddr = strings.TrimSuffix(idpBackendAddr, "/v1alpha1")
 	authConfig.IdpBackendAddress = idpBackendAddr
 
