@@ -10,9 +10,9 @@ replace (
 )
 
 require (
-	github.com/agntcy/dir/api v0.2.11
-	github.com/agntcy/dir/client v0.2.6
-	github.com/agntcy/dir/utils v0.2.11
+	github.com/agntcy/dir/api v0.2.13
+	github.com/agntcy/dir/client v0.2.13
+	github.com/agntcy/dir/utils v0.2.13
 	github.com/libp2p/go-libp2p v0.41.1
 	github.com/sigstore/sigstore v1.9.5
 	github.com/spf13/cobra v1.9.1
